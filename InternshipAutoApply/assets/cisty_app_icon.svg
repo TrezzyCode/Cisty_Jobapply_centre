@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Cisty app icon</title>
+  <desc id="desc">The Cisty C mark on a warm ivory rounded square.</desc>
+  <rect x="40" y="40" width="944" height="944" rx="224" fill="#F7F3EC" stroke="#E5D7CA" stroke-width="24"/>
+  <g transform="translate(142 142) scale(.74)">
+    <path fill="#B75334" d="M800 120H320C190 120 120 190 120 320v360c0 130 70 200 200 200h480c55 0 95-30 110-75l-70-155c-15 50-40 80-100 80H350c-50 0-80-30-80-80V350c0-50 30-80 80-80h390c60 0 85 30 100 80l70-155c-15-45-55-75-110-75Z"/>
+  </g>
+</svg>

@@ -1,5 +1,5 @@
 Place the newly built file here with this exact name:
 
-InternshipWorkspace.exe
+Cisty.exe
 
 Then run verify_package.bat before sharing the UserPack folder.

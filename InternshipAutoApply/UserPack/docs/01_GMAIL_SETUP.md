@@ -11,7 +11,7 @@
 
 1. 打开 https://console.cloud.google.com/
 2. 使用准备发送申请邮件的 Google/Gmail 账号登录。
-3. 在顶部项目选择器建立一个新项目，例如 `Internship Workspace`。
+3. 在顶部项目选择器建立一个新项目，例如 `Cisty`。
 
 ## 2. 启用 Gmail API
 
@@ -27,7 +27,7 @@ Google Cloud 的页面名称可能随账号类型略有不同：
 
 1. 打开 **Google Auth Platform → Branding**。
 2. 如果尚未配置，点击 **Get Started**。
-3. App name 可填写 `Internship Workspace`。
+3. App name 可填写 `Cisty`。
 4. User support email 与 Contact information 填写自己的邮箱。
 5. 如果页面提供 **Personal** 模式，而且只供自己使用，可选择 Personal。
 6. 否则选择 **External**，将发布状态保持为 **Testing**，并在 **Audience / Test users** 加入自己的 Gmail 地址。
@@ -39,7 +39,7 @@ Google Cloud 的页面名称可能随账号类型略有不同：
 1. 打开 **Google Auth Platform → Clients**。
 2. 点击 **Create Client**。
 3. Application type 选择 **Desktop app**。
-4. 名称可填写 `Internship Workspace Windows`。
+4. 名称可填写 `Cisty Windows`。
 5. 点击 Create，然后下载 JSON 文件。
 6. 把 JSON 保存在只有自己能访问的位置，例如 Documents，而不是公开网盘或 UserPack。
 
@@ -47,7 +47,7 @@ Google Cloud 的页面名称可能随账号类型略有不同：
 
 ## 5. 在软件中选择 JSON
 
-1. 打开 Internship Workspace。
+1. 打开 Cisty。
 2. 进入 **My Workspace**。
 3. 在 **Google OAuth credentials.json** 点击 Browse。
 4. 选择刚才下载的 JSON。

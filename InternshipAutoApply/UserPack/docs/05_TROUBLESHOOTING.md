@@ -6,7 +6,7 @@
 
 ## install.bat 显示找不到 EXE
 
-确认 `InternshipWorkspace.exe` 与 `install.bat` 位于同一个 UserPack 根目录，且文件名没有被浏览器改成 `(1)` 或其他名称。
+确认 `Cisty.exe` 与 `install.bat` 位于同一个 UserPack 根目录，且文件名没有被浏览器改成 `(1)` 或其他名称。
 
 ## Gmail 显示 Access denied / Error 403
 

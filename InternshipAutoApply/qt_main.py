@@ -14,8 +14,13 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-from PySide6.QtCore import Qt, Signal, QTimer, QEasingCurve, QPropertyAnimation, QRectF, QPointF
-from PySide6.QtGui import QColor, QPainter, QLinearGradient, QIcon, QPixmap, QPen, QPalette, QPainterPath
+from PySide6.QtCore import (
+    Qt, Signal, Property, QTimer, QEasingCurve, QPropertyAnimation, QRectF, QPointF
+)
+from PySide6.QtGui import (
+    QColor, QPainter, QLinearGradient, QIcon, QPixmap, QPen, QPalette,
+    QPainterPath, QTransform
+)
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QGridLayout, QStackedWidget, QLineEdit,
@@ -37,6 +42,54 @@ COLORS = {
     'line': '#D9D0C5', 'surface': '#FFFCF8', 'glass': '#F8F3EC',
     'soft': '#F2ECE4', 'danger': '#A8433B'
 }
+
+
+def reduce_motion_enabled():
+    """Respect the explicit dev override and Windows' client-animation setting."""
+    override = os.environ.get('QT_REDUCE_MOTION', '').strip().lower()
+    if override in {'1', 'true', 'yes', 'on'}:
+        return True
+    if override in {'0', 'false', 'no', 'off'}:
+        return False
+    if sys.platform == 'win32':
+        try:
+            import ctypes
+            animations_enabled = ctypes.c_int(1)
+            spi_get_client_area_animation = 0x1042
+            ctypes.windll.user32.SystemParametersInfoW(
+                spi_get_client_area_animation, 0,
+                ctypes.byref(animations_enabled), 0
+            )
+            return not bool(animations_enabled.value)
+        except Exception:
+            pass
+    return False
+
+
+def cisty_mark_path(rect):
+    """Return the approved squircle-C silhouette mapped into ``rect``."""
+    source = QPainterPath(QPointF(800, 120))
+    source.lineTo(320, 120)
+    source.cubicTo(190, 120, 120, 190, 120, 320)
+    source.lineTo(120, 680)
+    source.cubicTo(120, 810, 190, 880, 320, 880)
+    source.lineTo(800, 880)
+    source.cubicTo(855, 880, 895, 850, 910, 805)
+    source.lineTo(840, 650)
+    source.cubicTo(825, 700, 800, 730, 740, 730)
+    source.lineTo(350, 730)
+    source.cubicTo(300, 730, 270, 700, 270, 650)
+    source.lineTo(270, 350)
+    source.cubicTo(270, 300, 300, 270, 350, 270)
+    source.lineTo(740, 270)
+    source.cubicTo(800, 270, 825, 300, 840, 350)
+    source.lineTo(910, 195)
+    source.cubicTo(895, 150, 855, 120, 800, 120)
+    source.closeSubpath()
+    transform = QTransform()
+    transform.translate(rect.left(), rect.top())
+    transform.scale(rect.width() / 1000.0, rect.height() / 1000.0)
+    return transform.map(source)
 
 
 APP_QSS = f"""
@@ -233,7 +286,7 @@ class WarmComboBox(QComboBox):
     def showPopup(self):
         super().showPopup()
         popup = self.view().window()
-        if os.environ.get('QT_REDUCE_MOTION') == '1':
+        if reduce_motion_enabled():
             popup.setWindowOpacity(1.0)
             return
         popup.setWindowOpacity(0.0)
@@ -266,6 +319,226 @@ class Backdrop(QWidget):
         super().paintEvent(event)
 
 
+class CistyMarkWidget(QWidget):
+    """The approved C mark with a short, non-looping electric reveal."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._phase = 0.04
+        self._reduced_motion = reduce_motion_enabled()
+        self.setMinimumSize(180, 180)
+        self.setAccessibleName('Cisty logo')
+
+    def get_phase(self):
+        return self._phase
+
+    def set_phase(self, value):
+        self._phase = max(0.0, min(1.0, float(value)))
+        self.update()
+
+    phase = Property(float, get_phase, set_phase)
+
+    @staticmethod
+    def _ease_out(value):
+        value = max(0.0, min(1.0, value))
+        return 1.0 - (1.0 - value) ** 3
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        side = min(self.width(), self.height()) * .86
+        rect = QRectF(
+            (self.width() - side) / 2,
+            (self.height() - side) / 2,
+            side,
+            side,
+        )
+        path = cisty_mark_path(rect)
+        reveal = self._ease_out(self._phase / .28)
+        scale = 1.0 if self._reduced_motion else .96 + .04 * reveal
+
+        painter.save()
+        painter.translate(rect.center())
+        painter.scale(scale, scale)
+        painter.translate(-rect.center())
+        painter.setOpacity(reveal)
+        painter.fillPath(path, QColor(COLORS['accent']))
+
+        if not self._reduced_motion and .08 < self._phase < .82:
+            energy_progress = (self._phase - .08) / .74
+            energy = math.sin(math.pi * energy_progress)
+
+            glow = QColor('#D67B58')
+            glow.setAlpha(int(38 * energy))
+            glow_pen = QPen(glow, max(3.0, side * .018), Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            painter.setPen(glow_pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawPath(path)
+
+            current = QColor('#F1B296')
+            current.setAlpha(int(210 * energy))
+            current_pen = QPen(current, max(1.1, side * .006), Qt.CustomDashLine, Qt.RoundCap, Qt.RoundJoin)
+            current_pen.setDashPattern([.45, 1.35, .14, 1.05])
+            current_pen.setDashOffset(-self._phase * 18)
+            painter.setPen(current_pen)
+            painter.drawPath(path)
+
+            bolt_color = QColor('#C85E3B')
+            bolt_color.setAlpha(int(180 * energy))
+            painter.setPen(QPen(bolt_color, max(1.0, side * .005), Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+            for points in (
+                ((.78, .21), (.83, .14), (.85, .20), (.91, .12)),
+                ((.20, .62), (.13, .66), (.19, .70), (.10, .75)),
+                ((.76, .79), (.82, .85), (.84, .79), (.91, .87)),
+            ):
+                bolt = QPainterPath(QPointF(
+                    rect.left() + points[0][0] * rect.width(),
+                    rect.top() + points[0][1] * rect.height(),
+                ))
+                for x, y in points[1:]:
+                    bolt.lineTo(
+                        rect.left() + x * rect.width(),
+                        rect.top() + y * rect.height(),
+                    )
+                painter.drawPath(bolt)
+        painter.restore()
+
+
+class StartupWindow(QWidget):
+    """A brief Cisty brand reveal shown while the main workspace becomes ready."""
+
+    finished = Signal()
+
+    def __init__(self):
+        super().__init__(None, Qt.SplashScreen | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self._reduced_motion = reduce_motion_enabled()
+        self._closing = False
+        self._animations = []
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setFixedSize(520, 480)
+        self.setAccessibleName('Cisty startup screen')
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(28, 28, 28, 28)
+        card = QFrame()
+        card.setObjectName('startupCard')
+        card.setStyleSheet(f"""
+            QFrame#startupCard {{
+                background: #F7F3EC;
+                border: 1px solid #E5D7CA;
+                border-radius: 34px;
+            }}
+            QLabel#startupTitle {{
+                color: {COLORS['ink']};
+                font-family: "Segoe UI Variable Display", "Segoe UI";
+                font-size: 38px;
+                font-weight: 550;
+            }}
+            QLabel#startupSignature {{
+                color: #8A5C48;
+                font-family: "Segoe UI Variable Text", "Segoe UI";
+                font-size: 14px;
+                font-weight: 600;
+                letter-spacing: 3px;
+            }}
+        """)
+        outer.addWidget(card)
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(76, 54, 76, 50)
+        layout.setSpacing(0)
+        layout.addStretch(1)
+        self.mark = CistyMarkWidget()
+        self.mark.setFixedSize(224, 224)
+        layout.addWidget(self.mark, 0, Qt.AlignHCenter)
+        layout.addSpacing(12)
+
+        self.title = QLabel('Cisty')
+        self.title.setObjectName('startupTitle')
+        self.title.setAlignment(Qt.AlignCenter)
+        self.title_effect = QGraphicsOpacityEffect(self.title)
+        self.title_effect.setOpacity(0.0)
+        self.title.setGraphicsEffect(self.title_effect)
+        layout.addWidget(self.title)
+        layout.addSpacing(10)
+
+        self.signature = QLabel('Trez')
+        self.signature.setObjectName('startupSignature')
+        self.signature.setAlignment(Qt.AlignCenter)
+        self.signature_effect = QGraphicsOpacityEffect(self.signature)
+        self.signature_effect.setOpacity(0.0)
+        self.signature.setGraphicsEffect(self.signature_effect)
+        layout.addWidget(self.signature)
+        layout.addStretch(1)
+
+    def showEvent(self, event):
+        screen = QApplication.primaryScreen()
+        if screen:
+            area = screen.availableGeometry()
+            self.move(
+                area.x() + (area.width() - self.width()) // 2,
+                area.y() + (area.height() - self.height()) // 2,
+            )
+        super().showEvent(event)
+
+    def _fade_in(self, effect, duration):
+        animation = QPropertyAnimation(effect, b'opacity', self)
+        animation.setDuration(duration)
+        animation.setStartValue(effect.opacity())
+        animation.setEndValue(1.0)
+        animation.setEasingCurve(QEasingCurve.OutCubic)
+        self._animations.append(animation)
+        animation.start()
+
+    def start(self):
+        if self._reduced_motion:
+            self.mark.set_phase(1.0)
+            self.title_effect.setOpacity(1.0)
+            self.signature_effect.setOpacity(1.0)
+            QTimer.singleShot(520, self._begin_exit)
+            return
+
+        logo_animation = QPropertyAnimation(self.mark, b'phase', self)
+        logo_animation.setDuration(1050)
+        logo_animation.setStartValue(.04)
+        logo_animation.setEndValue(1.0)
+        logo_animation.setEasingCurve(QEasingCurve.Linear)
+        self._animations.append(logo_animation)
+        logo_animation.start()
+        QTimer.singleShot(250, lambda: self._fade_in(self.title_effect, 320))
+        QTimer.singleShot(500, lambda: self._fade_in(self.signature_effect, 260))
+        QTimer.singleShot(1280, self._begin_exit)
+
+    def _begin_exit(self):
+        if self._closing:
+            return
+        self._closing = True
+        fade = QPropertyAnimation(self, b'windowOpacity', self)
+        fade.setDuration(110 if self._reduced_motion else 180)
+        fade.setStartValue(self.windowOpacity())
+        fade.setEndValue(0.0)
+        fade.setEasingCurve(QEasingCurve.OutCubic)
+        fade.finished.connect(self._complete)
+        self._animations.append(fade)
+        fade.start()
+
+    def _complete(self):
+        self.close()
+        self.finished.emit()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._begin_exit()
+        super().mousePressEvent(event)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key_Escape, Qt.Key_Enter, Qt.Key_Return, Qt.Key_Space):
+            self._begin_exit()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
 class AnimatedStack(QStackedWidget):
     def setCurrentIndexAnimated(self, index):
         if index == self.currentIndex():
@@ -275,7 +548,7 @@ class AnimatedStack(QStackedWidget):
         effect = QGraphicsOpacityEffect(page)
         page.setGraphicsEffect(effect)
         animation = QPropertyAnimation(effect, b'opacity', self)
-        animation.setDuration(180 if os.environ.get('QT_REDUCE_MOTION') == '1' else 240)
+        animation.setDuration(180 if reduce_motion_enabled() else 240)
         animation.setStartValue(0.0)
         animation.setEndValue(1.0)
         animation.setEasingCurve(QEasingCurve.OutCubic)
@@ -290,7 +563,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Internship Workspace')
+        self.setWindowTitle('Cisty — Internship Workspace')
         self.resize(1500, 900)
         self.setMinimumSize(860, 560)
         self.settings = load_settings()
@@ -368,7 +641,7 @@ class MainWindow(QMainWindow):
         outer.setSpacing(10)
         header = QHBoxLayout()
         title_block = QVBoxLayout()
-        title = QLabel('Internship Workspace')
+        title = QLabel('Cisty')
         title.setObjectName('title')
         subtitle = QLabel('Companies, routes and applications in one place')
         subtitle.setObjectName('muted')
@@ -1135,25 +1408,45 @@ def main():
     palette.setColor(QPalette.ToolTipBase, QColor('#2B2724'))
     palette.setColor(QPalette.ToolTipText, QColor('#FFF9F3'))
     application.setPalette(palette)
-    application.setApplicationName('Internship Workspace')
+    application.setApplicationName('Cisty')
+    application.setApplicationDisplayName('Cisty')
+    icon_path = RESOURCE_DIR / 'assets' / 'cisty_app_icon.svg'
+    app_icon = QIcon(str(icon_path)) if icon_path.exists() else QIcon()
+    if not app_icon.isNull():
+        application.setWindowIcon(app_icon)
+
+    startup = StartupWindow()
+    startup.show()
+    application.processEvents()
+
     window = MainWindow()
+    if not app_icon.isNull():
+        window.setWindowIcon(app_icon)
     if not db().execute('SELECT COUNT(*) FROM companies').fetchone()[0]:
         workbook = RESOURCE_DIR / 'CareeReX_IT_highlight.xlsx'
         if workbook.exists():
             try: import_excel(workbook)
             except Exception: pass
         window.refresh()
-    window.show()
-    if sys.platform == 'win32':
-        try:
-            import ctypes
-            hwnd = int(window.winId())
-            light = ctypes.c_int(0)
-            # Windows 10/11: explicitly keep the native title bar in light mode.
-            for attribute in (20, 19):
-                ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attribute, ctypes.byref(light), ctypes.sizeof(light))
-        except Exception:
-            pass
+    def reveal_main_window():
+        window.show()
+        window.raise_()
+        window.activateWindow()
+        if sys.platform == 'win32':
+            try:
+                import ctypes
+                hwnd = int(window.winId())
+                light = ctypes.c_int(0)
+                # Windows 10/11: explicitly keep the native title bar in light mode.
+                for attribute in (20, 19):
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                        hwnd, attribute, ctypes.byref(light), ctypes.sizeof(light)
+                    )
+            except Exception:
+                pass
+
+    startup.finished.connect(reveal_main_window)
+    startup.start()
     sys.exit(application.exec())
 
 

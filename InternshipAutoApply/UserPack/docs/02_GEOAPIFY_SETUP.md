@@ -11,7 +11,7 @@ Geoapify 用于把公司地址转换为坐标。软件随后使用免费的站�
 
 1. 打开 https://myprojects.geoapify.com/
 2. 注册或登录自己的 Geoapify 账号。
-3. 建立一个项目，例如 `Internship Workspace`。
+3. 建立一个项目，例如 `Cisty`。
 4. 打开项目的 **API Keys**。
 5. 复制自动生成的 API key。
 6. 打开软件的 **My Workspace**。

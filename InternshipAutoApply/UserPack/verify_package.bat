@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 set "FAILED=0"
 
-call :check "InternshipWorkspace.exe"
+call :check "Cisty.exe"
 call :check "install.bat"
 call :check "run_portable.bat"
 call :check "uninstall.bat"

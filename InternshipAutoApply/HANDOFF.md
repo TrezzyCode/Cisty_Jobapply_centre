@@ -1,10 +1,10 @@
-# Internship Workspace — Project Handoff
+# Cisty — Project Handoff
 
 Last updated: 2026-11-22
 
 ## Product summary
 
-Internship Workspace is a Windows desktop application for importing a company Excel list, reviewing recruitment email candidates, calculating the nearest KL MRT/LRT/Monorail station, preparing Gmail applications, and following only the Gmail conversations created by this application.
+Cisty is a Windows desktop application for importing a company Excel list, reviewing recruitment email candidates, calculating the nearest KL MRT/LRT/Monorail station, preparing Gmail applications, and following only the Gmail conversations created by this application.
 
 The current primary interface is the PySide6 application in `qt_main.py`. The older Tkinter application in `main.py` remains the data and service layer as well as a temporary UI fallback.
 
@@ -17,12 +17,14 @@ The current primary interface is the PySide6 application in `qt_main.py`. The ol
 
 ## Main files
 
-- `qt_main.py` — current warm Apple-inspired PySide6 UI, responsive layout, filtering, profile, station calculations, Gmail drafts/sending, and tracked conversations.
+- `qt_main.py` — current warm Apple-inspired PySide6 UI, Cisty startup animation, responsive layout, filtering, profile, station calculations, Gmail drafts/sending, and tracked conversations.
+- `assets/` — approved Cisty squircle-C mark, lockup, app-icon SVG, and generated release icon files.
+- `tools/generate_brand_assets.py` — deterministic PNG/ICO renderer used by `build_exe.bat`.
 - `main.py` — shared constants, local-data paths, SQLite migrations, Excel import, and the older Tkinter interface.
 - `CareeReX_IT_highlight.xlsx` — starter company workbook bundled as application data.
 - `requirements.txt` — runtime dependencies.
 - `build_exe.bat` — reproducible one-file Windows EXE build script. It is intentionally not run during active UI development.
-- `UserPack/` — distribution-ready folder containing installation/portable scripts and end-user setup, privacy, usage, and troubleshooting documentation. Add the approved `InternshipWorkspace.exe` here only after building.
+- `UserPack/` — distribution-ready folder containing installation/portable scripts and end-user setup, privacy, usage, and troubleshooting documentation. Add the approved `Cisty.exe` here only after building.
 - `.gitignore` — privacy boundary for personal data and build artifacts.
 
 ## Local data and privacy boundary
@@ -54,6 +56,7 @@ Never commit:
 - Gmail draft, reviewed send, tracked-thread refresh, and reply are implemented.
 - My Workspace is embedded in the main window.
 - The profile avatar can be selected or removed in My Workspace. The sidebar uses the same photo and falls back to the user's initials.
+- The approved Cisty squircle-C mark is used by the startup reveal, window icon, and EXE packaging. The electric outline plays once and respects Windows reduced-motion settings.
 - The current UI uses a warm Claude-like palette with restrained Apple-style depth and motion. Avoid excessive glass blur, gradients, glows, tilt effects, or decorative animation.
 
 ## Station-distance rules
@@ -68,7 +71,7 @@ Do not package during normal iteration. When a release candidate is approved:
 2. Test Excel import, a filtered station calculation, profile save/avatar, Gmail draft, and conversation refresh.
 3. Confirm no personal data exists in the Git staged-file list.
 4. Run `build_exe.bat`.
-5. Copy `dist\InternshipWorkspace.exe` to `UserPack\InternshipWorkspace.exe`.
+5. Copy `dist\Cisty.exe` to `UserPack\Cisty.exe`.
 6. Run `UserPack\verify_package.bat` and test `install.bat`, shortcuts, portable launch, and uninstall on a clean Windows account.
 7. Zip the complete UserPack folder. Never include or share `%LOCALAPPDATA%\IT Internship Auto Apply`.
 
