@@ -1,0 +1,30 @@
+{
+  "size": {
+    "width": 1920,
+    "height": 1080
+  },
+  "search": {
+    "x": 1215,
+    "y": 22,
+    "width": 520,
+    "height": 42
+  },
+  "filters": {
+    "x": 210,
+    "y": 122,
+    "width": 1696,
+    "height": 124
+  },
+  "table": {
+    "x": 210,
+    "y": 256,
+    "width": 1176,
+    "height": 812
+  },
+  "inspector": {
+    "x": 1398,
+    "y": 256,
+    "width": 508,
+    "height": 812
+  }
+}

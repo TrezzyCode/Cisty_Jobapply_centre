@@ -29,3 +29,7 @@ After building, copy `dist\Cisty.exe` into `UserPack\`. The UserPack contains a 
 ## Project handoff
 
 See `HANDOFF.md` for architecture, privacy boundaries, release steps, and the current implementation status.
+
+## Product promo
+
+The `promo/` folder contains the 27-second Cisty Remotion product film, isolated fictional UI captures, audio provenance, shot plan, workbench manifest, and reproducible finalization script. See `promo/README.md` before rendering.

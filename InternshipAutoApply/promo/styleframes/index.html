@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{--ivory:#f7f3ec;--paper:#fffdf9;--ink:#2b2724;--muted:#756c66;--accent:#b75334;--soft:#eed8cb;--line:#dfd2c6}
+    *{box-sizing:border-box}html,body{margin:0;width:1920px;height:1080px;overflow:hidden;font-family:"Segoe UI",system-ui,sans-serif;color:var(--ink);background:var(--ivory)}
+    body:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 78% 12%,rgba(183,83,52,.10),transparent 34%),radial-gradient(circle at 14% 82%,rgba(116,88,72,.08),transparent 36%)}
+    .screen{position:absolute;inset:0;padding:82px 100px}.screen:not(.on){display:none!important}.screen.on{display:block}
+    .eyebrow{font-size:24px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:650}.title{font-size:92px;line-height:1.02;letter-spacing:-.045em;margin:22px 0 18px;max-width:1120px}.sub{font-size:38px;line-height:1.36;color:var(--muted);max-width:1000px}
+    .brand.on{display:grid;place-items:center;text-align:center}.mark{width:290px;height:290px;border:42px solid var(--accent);border-right-color:transparent;border-radius:50%;position:relative;filter:drop-shadow(0 28px 52px rgba(101,52,34,.16))}.mark:after{content:"";position:absolute;right:4px;bottom:26px;width:86px;height:32px;border-radius:18px;background:var(--accent);transform:rotate(-42deg)}.brand .title{font-size:124px;margin-top:48px}.brand .sub{font-size:34px}.by{margin-top:22px;font-size:24px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+    .product{padding:64px 80px}.caption{position:absolute;z-index:3;left:90px;top:72px;width:840px;padding:34px 40px;border:1px solid rgba(223,210,198,.8);border-radius:30px;background:rgba(255,253,249,.88);box-shadow:0 30px 80px rgba(72,50,37,.14);backdrop-filter:blur(18px)}.caption h2{font-size:62px;line-height:1.08;letter-spacing:-.035em;margin:0 0 12px}.caption p{font-size:27px;color:var(--muted);margin:0}.capture{position:absolute;left:260px;top:190px;width:1580px;border-radius:34px;overflow:hidden;border:1px solid var(--line);box-shadow:0 44px 100px rgba(62,44,33,.18);background:var(--paper)}.capture img{display:block;width:100%}.line{position:absolute;left:-120px;right:-120px;bottom:104px;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);transform:rotate(-4deg);opacity:.45}
+    .outro.on{display:grid;place-items:center}.lockup{display:flex;align-items:center;gap:54px}.outro .mark{width:220px;height:220px;border-width:32px}.outro .mark:after{width:65px;height:24px}.word{font-size:146px;letter-spacing:-.055em;font-weight:700}.tag{margin-top:42px;text-align:center;font-size:38px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <section id="opening" class="screen brand">
+    <div><div class="mark"></div><h1 class="title">Cisty</h1><p class="sub">Your internship search, in one calm workspace.</p><div class="by">by Trez</div></div>
+  </section>
+  <section id="product" class="screen product">
+    <div class="caption"><div class="eyebrow">Search with context</div><h2>Know the company.<br>Know the route.</h2><p>Industry, region and transit line — together.</p></div>
+    <div class="capture"><img src="../public/captures/station-detail.png" alt="Cisty product interface"></div><div class="line"></div>
+  </section>
+  <section id="outro" class="screen outro">
+    <div><div class="lockup"><div class="mark"></div><div class="word">Cisty</div></div><div class="tag">Apply with clarity.</div><div class="by" style="text-align:center">by Trez</div></div>
+  </section>
+  <script>const id=new URLSearchParams(location.search).get('frame')||'opening';document.getElementById(id)?.classList.add('on')</script>
+</body>
+</html>

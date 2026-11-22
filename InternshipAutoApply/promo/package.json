@@ -1,0 +1,26 @@
+{
+  "name": "cisty-product-film",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "still": "remotion still src/index.ts CistyPromo",
+    "render": "npm run render:master && npm run render:clean-audio && npm run finalize",
+    "render:master": "remotion render src/index.ts CistyPromo out/final/cisty-promo-render.mp4 --codec=h264 --crf=18",
+    "render:clean-audio": "remotion render src/index.ts CistyPromoClean out/final/cisty-promo-clean-render.mp4 --codec=h264 --crf=18",
+    "finalize": "node scripts/finalize.mjs",
+    "frames": "remotion still src/index.ts CistyPromo"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.484",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "remotion": "4.0.484"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.17",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0",
+    "typescript": "6.0.3"
+  }
+}

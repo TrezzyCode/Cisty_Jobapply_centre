@@ -81,6 +81,12 @@ Canonical repository: `https://github.com/TrezzyCode/auto_send_internship_req`
 
 Use the `main` branch. Before every push, inspect `git status` and the staged file list for credentials or personal data. Commit source and documentation changes together with a concise message. Do not commit generated EXE files unless a future release policy explicitly requests GitHub Releases.
 
+## Product promo video
+
+The reproducible Remotion project is in `promo/`. It uses real Cisty PySide6 captures generated from an isolated fictional database; no personal application data is used. `promo/capture_demo.py` can regenerate the captures.
+
+Install Node.js, run `npm install` inside `promo/`, then run `npm run render`. The finalizer normalizes the music master and reuses the exact same encoded video stream for the no-music version. Final MP4 files are written to `promo/out/final/` and intentionally ignored by Git. Mixkit music and Freesound CC0 provenance are recorded under `promo/public/audio/`.
+
 ## Known verification gap
 
 This development environment does not currently expose a working local Python launcher, so the latest PySide6 changes have received static checks but still require a real Windows launch test through `run_glass_ui.bat` before packaging.

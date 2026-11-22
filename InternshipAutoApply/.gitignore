@@ -21,3 +21,8 @@ profile_avatar.*
 user_data/
 UserPack/InternshipWorkspace.exe
 UserPack/*.zip
+promo/node_modules/
+promo/.tools/
+promo/out/
+promo/capture_runtime/
+promo/styleframes/out/
