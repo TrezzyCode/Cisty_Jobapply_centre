@@ -44,3 +44,4 @@
 - 发送前会再次弹窗要求确认。应用不会在后台无审核群发。
 - 本地数据库 `internship_applications.db`、设置 `settings.json` 和 OAuth token（`token.json`／`token_messages.json`）请勿分享给他人；token 可在 Google Account 的第三方访问权限中撤销。
 - 建议先用自己的备用邮箱做一次 Draft 测试。
+code by Trez and Yee
