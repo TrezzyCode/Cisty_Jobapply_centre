@@ -1375,6 +1375,9 @@ class MainWindow(QMainWindow):
         self._set_combo_items(self.industry_filter, ['All industries'] + industries, 'All industries')
         self._set_combo_items(self.region_filter, ['All regions','Kuala Lumpur / Selangor'] + regions, 'All regions')
         q = self.search.text().strip().lower()
+        industry, region = self.industry_filter.currentText(), self.region_filter.currentText()
+        line = self.line_filter.currentText()
+        distance, status = self.distance_filter.currentText(), self.status_filter.currentText()
         shown = []
         for r in rows:
             hay = ' '.join(str(r[k] or '') for k in ['name','industry','address','city','state','station','hr_email']).lower()
@@ -1383,8 +1386,6 @@ class MainWindow(QMainWindow):
             route_checked = bool(r['route_verified']) and r['station'] in LINE_STATIONS and r['walk_minutes'] is not None
             verified = route_checked and int(r['walk_minutes']) <= 10
             ready = verified and bool(r['hr_email']) and '@' in r['hr_email'] and bool(r['email_verified']) and r['status'] == 'Not applied'
-            industry, region = self.industry_filter.currentText(), self.region_filter.currentText()
-            line, distance, status = self.line_filter.currentText(), self.distance_filter.currentText(), self.status_filter.currentText()
             if industry != 'All industries' and r['industry'] != industry: continue
             if line != 'All transit lines' and r['station_line'] and r['station_line'] != line: continue
             if region == 'Kuala Lumpur / Selangor' and not local: continue
@@ -1401,18 +1402,32 @@ class MainWindow(QMainWindow):
         if self.line_filter.currentText() != 'All transit lines':
             target = self.line_filter.currentText()
             shown.sort(key=lambda r: (0 if r['station_line'] == target else 1, str(r['name']).lower()))
-        self.table.blockSignals(True); self.table.setRowCount(len(shown))
         selected_row = -1
-        for row_index, r in enumerate(shown):
-            distance = f"{r['walk_distance_meters']/1000:.1f} km" if r['walk_distance_meters'] is not None else '—'
-            contact = 'Verified' if r['email_verified'] else ('Check needed' if r['hr_email'] else 'Missing')
-            values = [r['name'], r['industry'], r['city'], r['station'] or 'Needs calculation', distance, contact, r['status']]
-            for column, value in enumerate(values):
-                item = QTableWidgetItem(str(value or '—'))
-                if column == 0: item.setData(Qt.UserRole, r['id'])
-                self.table.setItem(row_index, column, item)
-            if r['id'] == selected: selected_row = row_index
-        self.table.blockSignals(False)
+        self.table.blockSignals(True)
+        self.table.setUpdatesEnabled(False)
+        try:
+            if self.table.rowCount() != len(shown):
+                self.table.setRowCount(len(shown))
+            for row_index, r in enumerate(shown):
+                station_distance = f"{r['walk_distance_meters']/1000:.1f} km" if r['walk_distance_meters'] is not None else '—'
+                contact = 'Verified' if r['email_verified'] else ('Check needed' if r['hr_email'] else 'Missing')
+                values = [r['name'], r['industry'], r['city'], r['station'] or 'Needs calculation', station_distance, contact, r['status']]
+                for column, value in enumerate(values):
+                    text = str(value or '—')
+                    item = self.table.item(row_index, column)
+                    if item is None:
+                        item = QTableWidgetItem(text)
+                        self.table.setItem(row_index, column, item)
+                    elif item.text() != text:
+                        item.setText(text)
+                    if column == 0 and item.data(Qt.UserRole) != r['id']:
+                        item.setData(Qt.UserRole, r['id'])
+                if r['id'] == selected:
+                    selected_row = row_index
+        finally:
+            self.table.setUpdatesEnabled(True)
+            self.table.blockSignals(False)
+            self.table.viewport().update()
         if selected_row >= 0: self.table.selectRow(selected_row)
         self.metric_values['total'].setText(f'{len(rows):,}')
         self.metric_values['visible'].setText(f'{len(shown):,}')
