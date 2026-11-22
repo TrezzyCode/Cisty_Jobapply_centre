@@ -20,6 +20,12 @@ npm run render
 
 The finalizer raises the verified music bed by 8 dB and copies the master's encoded video stream into the no-music file, so both variants are frame-identical. `out/`, local Node tools, dependencies and capture runtime are ignored by Git.
 
+To render only the public no-music edition while keeping the restrained interface SFX:
+
+```powershell
+npm run render:no-music
+```
+
 ## Regenerate safe product captures
 
 From the application folder:

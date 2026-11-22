@@ -14,7 +14,7 @@ Three directions were considered:
 
 - 1920 × 1080, 30 fps, 27 seconds.
 - No voice-over. English on-screen copy matches the current English interface.
-- Deliverables: music version and clean no-music version from the same timeline.
+- Current public deliverable: clean no-music version with restrained interface SFX.
 - Product imagery is captured from the real PySide6 application with a completely isolated fictional database.
 
 ## Visual system
@@ -40,9 +40,21 @@ Three directions were considered:
 |---:|---:|---|---|
 | 0–149 | 5.0 s | C mark stroke build | Your internship search, in one calm workspace. |
 | 150–329 | 6.0 s | Type and filter | Import once. Filter by industry, region and transit line. |
-| 330–479 | 5.0 s | Station row embed | See the nearest MRT / LRT station — calculated and saved. |
-| 480–629 | 5.0 s | Conversation list reveal | Track only the application conversations sent through Cisty. |
+| 330–479 | 5.0 s | Saved station detail with callouts | See the nearest MRT / LRT station — calculated and saved. |
+| 480–629 | 5.0 s | Conversation list reveal | Track Cisty-only replies and keep application state synced between school and home. |
 | 630–809 | 6.0 s | UI-to-brand morph | Cisty — Apply with clarity. by Trez |
+
+## Requirements to execution
+
+| Requirement | Execution decision |
+|---|---|
+| Import and filter by industry, region and transit line | Real filtered Cisty capture, human-speed typing, and explicit filter caption in frames 150–329. |
+| Saved nearest station and distance | Real selected-company capture plus three readable floating fact callouts in frames 330–479. The callouts summarize the saved row; they do not claim to embed into it. |
+| Cisty-only email conversation | Real conversation capture and an explicit `Cisty-only conversations` label in frames 480–629. |
+| Same-Gmail school/home sync | `Same Gmail` callout and school/home status copy in the conversation shot. |
+| No background music | `CistyPromoClean` composition; only three bounded, CC0 interface SFX cues remain. |
+| Privacy-safe public media | All product captures are regenerated from the isolated fictional database in `capture_demo.py`. |
+| Motion vocabulary | Custom Warm Precision motion; no Gallery card or variant is claimed. |
 
 ## Safety and privacy
 

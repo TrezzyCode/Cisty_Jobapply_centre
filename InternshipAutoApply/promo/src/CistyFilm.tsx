@@ -167,11 +167,11 @@ export const ConversationShot: React.FC = () => {
       <AbsoluteFill style={{opacity: sceneOpacity(f, SHOTS.conversation.duration)}}>
         <ProductFrame src="captures/conversation.png" transform={`translateX(${-175 * z}px) scale(${1.02 + 0.08 * z})`} />
         <div style={{position: 'absolute', left: 102, top: 80, width: 840, padding: '28px 34px 32px', borderRadius: 28, background: 'rgba(255,253,249,.94)', border: `1px solid ${C.line}`, boxShadow: '0 28px 70px rgba(70,48,34,.14)', opacity: ramp(f, 5, 18)}}>
-          <Headline eyebrow="One private thread" title={'Follow every reply.\nOnly the ones Cisty sent.'} />
+          <Headline eyebrow="Cisty-only conversations" title={'Follow every reply.\nStay synced wherever you study.'} />
         </div>
         <MessagePill cue={42} top={470} kicker="You sent" body="Application for Software Internship" />
         <MessagePill cue={56} top={620} kicker="They replied" body="Interview invitation received" accent />
-        <MessagePill cue={70} top={770} kicker="System only" body="Unrelated inbox mail stays private" />
+        <MessagePill cue={70} top={770} kicker="Same Gmail" body="School or home — your application status follows" />
       </AbsoluteFill>
     </WarmStage>
   );
@@ -207,6 +207,12 @@ export const OutroShot: React.FC = () => {
   );
 };
 
+export const SFX_CUES = [
+  {from: SHOTS.filter.from + 28, duration: 30, src: 'audio/sfx/fs-813214.mp3', volume: 1.1},
+  {from: SHOTS.station.from, duration: 8, src: 'audio/sfx/fs-878248.mp3', volume: 0.7},
+  {from: SHOTS.outro.from + 42, duration: 18, src: 'audio/sfx/fs-879272.mp3', volume: 0.4},
+] as const;
+
 export const CistyFilm: React.FC<{music?: boolean}> = ({music = true}) => (
   <AbsoluteFill style={{backgroundColor: C.ivory}}>
     <Sequence from={SHOTS.opening.from} durationInFrames={SHOTS.opening.duration}><OpeningShot /></Sequence>
@@ -214,9 +220,11 @@ export const CistyFilm: React.FC<{music?: boolean}> = ({music = true}) => (
     <Sequence from={SHOTS.station.from} durationInFrames={SHOTS.station.duration}><StationShot /></Sequence>
     <Sequence from={SHOTS.conversation.from} durationInFrames={SHOTS.conversation.duration}><ConversationShot /></Sequence>
     <Sequence from={SHOTS.outro.from} durationInFrames={SHOTS.outro.duration}><OutroShot /></Sequence>
-    <Sequence from={178} durationInFrames={52}><Audio src={staticFile('audio/sfx/fs-813214.mp3')} endAt={52} volume={0.55} /></Sequence>
-    <Sequence from={330} durationInFrames={8}><Audio src={staticFile('audio/sfx/fs-878248.mp3')} volume={0.24} /></Sequence>
-    <Sequence from={672} durationInFrames={18}><Audio src={staticFile('audio/sfx/fs-879272.mp3')} volume={0.18} /></Sequence>
+    {SFX_CUES.map((cue) => (
+      <Sequence key={cue.src} from={cue.from} durationInFrames={cue.duration}>
+        <Audio src={staticFile(cue.src)} endAt={cue.duration} volume={cue.volume} />
+      </Sequence>
+    ))}
     {music ? <Audio src={staticFile('audio/cat-walk.mp3')} startFrom={120} endAt={120 + TOTAL_FRAMES} volume={(frame) => interpolate(frame, [0, 30, TOTAL_FRAMES - 45, TOTAL_FRAMES], [0, .22, .22, 0], clamp)} /> : null}
   </AbsoluteFill>
 );

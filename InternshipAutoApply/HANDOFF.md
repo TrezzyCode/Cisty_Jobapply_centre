@@ -63,6 +63,7 @@ Never commit:
 - The profile avatar can be selected or removed in My Workspace. The sidebar uses the same photo and falls back to the user's initials.
 - The approved Cisty squircle-C mark is used by the startup reveal, window icon, and EXE packaging. The electric outline plays once and respects Windows reduced-motion settings.
 - The light UI uses a warm Claude-like palette; dark mode is a deliberate black, bone-white, and champagne-gold composition. Both use restrained Apple-style depth and motion. Avoid excessive glass blur, gradients, glows, tilt effects, or decorative animation.
+- The public GitHub README is branded as Cisty and embeds `docs/media/cisty-promo-preview.gif`, linked to the 1080p no-background-music product film at `docs/media/cisty-promo-no-music.mp4`. Rebuild the film from isolated fictional data with `promo/capture_demo.py` and `npm run render:no-music`; never capture the user's real `%LOCALAPPDATA%` profile.
 
 ## Station-distance rules
 

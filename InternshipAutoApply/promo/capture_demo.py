@@ -127,6 +127,7 @@ def main() -> int:
     window.move(-2400, -1400)
     window.show()
     app.processEvents()
+    window.gmail_sync_status.setText("Synced just now • 8 applications • 1 reply")
 
     # Applications: full list with the hero company selected.
     for row in range(window.table.rowCount()):

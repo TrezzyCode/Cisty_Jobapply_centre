@@ -8,6 +8,7 @@
     "render": "npm run render:master && npm run render:clean-audio && npm run finalize",
     "render:master": "remotion render src/index.ts CistyPromo out/final/cisty-promo-render.mp4 --codec=h264 --crf=18",
     "render:clean-audio": "remotion render src/index.ts CistyPromoClean out/final/cisty-promo-clean-render.mp4 --codec=h264 --crf=18",
+    "render:no-music": "remotion render src/index.ts CistyPromoClean out/final/cisty-promo-no-music.mp4 --codec=h264 --crf=18",
     "finalize": "node scripts/finalize.mjs",
     "frames": "remotion still src/index.ts CistyPromo"
   },

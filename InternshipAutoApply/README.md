@@ -38,4 +38,4 @@ See `HANDOFF.md` for architecture, privacy boundaries, release steps, and the cu
 
 ## Product promo
 
-The `promo/` folder contains the 27-second Cisty Remotion product film, isolated fictional UI captures, audio provenance, shot plan, workbench manifest, and reproducible finalization script. See `promo/README.md` before rendering.
+The `promo/` folder contains the 27-second Cisty Remotion product film, isolated fictional UI captures, audio provenance, shot plan, workbench manifest, and reproducible finalization script. The public GitHub edition has no background music and retains only restrained interface SFX. See `promo/README.md` before rendering.
