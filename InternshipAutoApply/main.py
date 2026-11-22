@@ -61,7 +61,7 @@ DEFAULTS = {
     'student_name': '', 'course': '', 'internship_period': '', 'phone': '',
     'sender_email': '', 'resume_path': '', 'credentials_path': '',
     'email_subject': 'Application for IT Internship – {company}', 'geoapify_api_key': '',
-    'profile_avatar_path': '', 'profile_ready': False
+    'profile_avatar_path': '', 'profile_ready': False, 'theme': 'light'
 }
 
 

@@ -19,7 +19,7 @@ from urllib.request import Request, urlopen
 
 from PySide6.QtCore import (
     Qt, Signal, Property, QTimer, QEasingCurve, QPropertyAnimation, QRectF, QPointF,
-    QLockFile
+    QLockFile, QSize
 )
 from PySide6.QtGui import (
     QColor, QPainter, QLinearGradient, QIcon, QPixmap, QPen, QPalette,
@@ -40,12 +40,72 @@ from main import (
 )
 
 
-COLORS = {
-    'ink': '#2B2724', 'muted': '#716A63', 'accent': '#B75334',
-    'accent_dark': '#984329', 'accent_soft': '#EED8CB', 'green': '#4B6F5C',
-    'line': '#D9D0C5', 'surface': '#FFFCF8', 'glass': '#F8F3EC',
-    'soft': '#F2ECE4', 'danger': '#A8433B'
+LIGHT_THEME = {
+    'ink':'#2B2724', 'muted':'#716A63', 'accent':'#B75334', 'accent_hover':'#984329',
+    'accent_soft':'#EED8CB', 'on_accent':'#FFFFFF', 'green':'#4B6F5C', 'on_green':'#FFFFFF',
+    'line':'#D9D0C5', 'surface':'#FFFCF8', 'glass':'#F8F3EC', 'soft':'#F2ECE4',
+    'danger':'#A8433B', 'profile_bg':'#F5ECE4', 'profile_line':'#DECFC2',
+    'control':'#FFFDF9', 'control_hover':'#FFF9F3', 'control_pressed':'#F0E3D9',
+    'disabled_text':'#817870', 'disabled_bg':'#EEE9E3', 'quiet_hover':'#EADDD2',
+    'nav_text':'#514A44', 'nav_hover':'#F1E8DF', 'nav_checked_text':'#342B25',
+    'nav_checked_line':'#DEC0AF', 'popup_alt':'#FAF4ED', 'popup_line':'#CFC4B8',
+    'table_alt':'#FAF6F0', 'grid':'#E8E0D7', 'item_line':'#E9E1D8',
+    'header_text':'#504942', 'header_bg':'#F4EEE7', 'header_line':'#D5CAC0',
+    'tab_text':'#685F57', 'tab_selected_bg':'#FFF9F4', 'check_line':'#BFB3A8',
+    'scrollbar':'#C7B9AD', 'scrollbar_hover':'#A99586', 'icon':'#655D56',
+    'canvas_0':'#F8F4EE', 'canvas_1':'#F4EFE8', 'canvas_2':'#EEE7DE',
+    'route':'#97664B', 'node':'#F7F0E8', 'avatar_bg':'#EED8CB',
+    'avatar_text':'#6E3C2C', 'avatar_line':'#D6BCAA', 'startup_bg':'#F7F3EC',
+    'startup_line':'#E5D7CA', 'startup_signature':'#8A5C48',
+    'tooltip_bg':'#2B2724', 'tooltip_text':'#FFF9F3',
 }
+
+DARK_THEME = {
+    'ink':'#F3EEE8', 'muted':'#B8ADA4', 'accent':'#D97855', 'accent_hover':'#EC8A67',
+    'accent_soft':'#4A2D24', 'on_accent':'#1D1512', 'green':'#83B098', 'on_green':'#111914',
+    'line':'#3B3530', 'surface':'#211E1B', 'glass':'#1B1816', 'soft':'#2A2521',
+    'danger':'#E2847B', 'profile_bg':'#28221E', 'profile_line':'#463A33',
+    'control':'#292521', 'control_hover':'#342E29', 'control_pressed':'#3B322C',
+    'disabled_text':'#847A72', 'disabled_bg':'#25211E', 'quiet_hover':'#352A25',
+    'nav_text':'#CFC5BC', 'nav_hover':'#2D2723', 'nav_checked_text':'#F7E9E1',
+    'nav_checked_line':'#704738', 'popup_alt':'#25211E', 'popup_line':'#4A413A',
+    'table_alt':'#25211E', 'grid':'#37312C', 'item_line':'#342E29',
+    'header_text':'#D8CEC5', 'header_bg':'#29241F', 'header_line':'#413932',
+    'tab_text':'#BDB2A9', 'tab_selected_bg':'#2E241F', 'check_line':'#655A51',
+    'scrollbar':'#62564D', 'scrollbar_hover':'#8B7568', 'icon':'#C9BDB4',
+    'canvas_0':'#171513', 'canvas_1':'#141210', 'canvas_2':'#11100E',
+    'route':'#6F4B3C', 'node':'#332822', 'avatar_bg':'#4A2D24',
+    'avatar_text':'#F3C0AA', 'avatar_line':'#704738', 'startup_bg':'#1D1A18',
+    'startup_line':'#3B342F', 'startup_signature':'#D59A80',
+    'tooltip_bg':'#F2EAE3', 'tooltip_text':'#211B18',
+}
+
+COLORS = LIGHT_THEME.copy()
+
+
+def set_active_theme(theme):
+    COLORS.clear()
+    COLORS.update(DARK_THEME if theme == 'dark' else LIGHT_THEME)
+
+
+def apply_application_palette(application):
+    palette = QPalette()
+    palette.setColor(QPalette.Window, QColor(COLORS['canvas_1']))
+    palette.setColor(QPalette.WindowText, QColor(COLORS['ink']))
+    palette.setColor(QPalette.Base, QColor(COLORS['control']))
+    palette.setColor(QPalette.AlternateBase, QColor(COLORS['table_alt']))
+    palette.setColor(QPalette.Text, QColor(COLORS['ink']))
+    palette.setColor(QPalette.Button, QColor(COLORS['control']))
+    palette.setColor(QPalette.ButtonText, QColor(COLORS['ink']))
+    palette.setColor(QPalette.Highlight, QColor(COLORS['accent_soft']))
+    palette.setColor(QPalette.HighlightedText, QColor(COLORS['ink']))
+    palette.setColor(QPalette.ToolTipBase, QColor(COLORS['tooltip_bg']))
+    palette.setColor(QPalette.ToolTipText, QColor(COLORS['tooltip_text']))
+    palette.setColor(QPalette.PlaceholderText, QColor(COLORS['muted']))
+    palette.setColor(QPalette.Link, QColor(COLORS['accent_hover']))
+    palette.setColor(QPalette.Disabled, QPalette.Text, QColor(COLORS['disabled_text']))
+    palette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(COLORS['disabled_text']))
+    application.setPalette(palette)
 
 CISTY_APPLICATION_LABEL = 'Cisty/Applications'
 
@@ -98,7 +158,8 @@ def cisty_mark_path(rect):
     return transform.map(source)
 
 
-APP_QSS = f"""
+def build_app_qss():
+    return f"""
 * {{ font-family: "Segoe UI Variable Text", "Segoe UI"; font-size: 13px; color: {COLORS['ink']}; }}
 QWidget#root {{ background: transparent; }}
 QFrame#glass, QFrame#surface {{
@@ -106,7 +167,7 @@ QFrame#glass, QFrame#surface {{
     background: {COLORS['glass']};
 }}
 QFrame#surface {{ background: {COLORS['surface']}; border-color: {COLORS['line']}; }}
-QFrame#profileCard {{ background: #F5ECE4; border: 1px solid #DECFC2; border-radius: 16px; }}
+QFrame#profileCard {{ background: {COLORS['profile_bg']}; border: 1px solid {COLORS['profile_line']}; border-radius: 16px; }}
 QLabel#title {{ font-size: 26px; font-weight: 600; }}
 QLabel#pageTitle {{ font-size: 23px; font-weight: 600; }}
 QLabel#sectionTitle {{ font-size: 18px; font-weight: 600; }}
@@ -116,25 +177,25 @@ QLabel#success {{ color: {COLORS['green']}; font-weight: 600; }}
 QLabel#profileName {{ font-size: 18px; font-weight: 600; color: {COLORS['ink']}; }}
 QPushButton {{
     min-height: 36px; padding: 0 14px; border-radius: 10px;
-    border: 1px solid {COLORS['line']}; background: #FFFDF9;
+    border: 1px solid {COLORS['line']}; background: {COLORS['control']};
     font-weight: 500;
 }}
-QPushButton:hover {{ background: #FFF9F3; border-color: #BBAA9C; }}
-QPushButton:pressed {{ background: #F0E3D9; padding-top: 2px; }}
-QPushButton:disabled {{ color: #9B938C; background: #EEE9E3; }}
-QPushButton#primary {{ color: white; background: {COLORS['accent']}; border: none; min-height: 40px; }}
-QPushButton#primary:hover {{ background: {COLORS['accent_dark']}; }}
-QPushButton#successButton {{ color: white; background: {COLORS['green']}; border: none; min-height: 38px; }}
-QPushButton#quiet {{ color: {COLORS['accent_dark']}; background: transparent; border: none; padding: 0 8px; }}
-QPushButton#quiet:hover {{ background: #EADDD2; }}
+QPushButton:hover {{ background: {COLORS['control_hover']}; border-color: {COLORS['scrollbar_hover']}; }}
+QPushButton:pressed {{ background: {COLORS['control_pressed']}; padding-top: 2px; }}
+QPushButton:disabled {{ color: {COLORS['disabled_text']}; background: {COLORS['disabled_bg']}; }}
+QPushButton#primary {{ color: {COLORS['on_accent']}; background: {COLORS['accent']}; border: none; min-height: 40px; }}
+QPushButton#primary:hover {{ background: {COLORS['accent_hover']}; }}
+QPushButton#successButton {{ color: {COLORS['on_green']}; background: {COLORS['green']}; border: none; min-height: 38px; }}
+QPushButton#quiet {{ color: {COLORS['accent_hover']}; background: transparent; border: none; padding: 0 8px; }}
+QPushButton#quiet:hover {{ background: {COLORS['quiet_hover']}; }}
 QPushButton#nav {{
     min-height: 42px; text-align: left; padding-left: 13px; border: none;
-    background: transparent; color: #514A44; font-weight: 500;
+    background: transparent; color: {COLORS['nav_text']}; font-weight: 500;
 }}
-QPushButton#nav:hover {{ background: #F1E8DF; }}
-QPushButton#nav:checked {{ color: #342B25; background: {COLORS['accent_soft']}; border: 1px solid #DEC0AF; }}
+QPushButton#nav:hover {{ background: {COLORS['nav_hover']}; }}
+QPushButton#nav:checked {{ color: {COLORS['nav_checked_text']}; background: {COLORS['accent_soft']}; border: 1px solid {COLORS['nav_checked_line']}; }}
 QLineEdit, QComboBox, QPlainTextEdit {{
-    color: {COLORS['ink']}; background: #FFFDF9; border: 1px solid {COLORS['line']};
+    color: {COLORS['ink']}; background: {COLORS['control']}; border: 1px solid {COLORS['line']};
     border-radius: 9px; padding: 7px; selection-background-color: {COLORS['accent_soft']};
     selection-color: {COLORS['ink']};
 }}
@@ -142,39 +203,39 @@ QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus {{ border: 2px solid {COL
 QComboBox {{ min-height: 34px; padding-right: 26px; }}
 QComboBox::drop-down {{ border: none; width: 26px; }}
 QComboBox QAbstractItemView {{
-    color: {COLORS['ink']}; background: #FFFDF9; alternate-background-color: #FAF4ED;
-    border: 1px solid #CFC4B8; border-radius: 10px; padding: 6px;
+    color: {COLORS['ink']}; background: {COLORS['control']}; alternate-background-color: {COLORS['popup_alt']};
+    border: 1px solid {COLORS['popup_line']}; border-radius: 10px; padding: 6px;
     selection-background-color: {COLORS['accent_soft']}; selection-color: {COLORS['ink']};
     outline: 0; min-width: 180px;
 }}
 QComboBox QAbstractItemView::item {{ min-height: 32px; padding: 3px 9px; }}
 QTableWidget {{
-    color: {COLORS['ink']}; background: {COLORS['surface']}; alternate-background-color: #FAF6F0;
-    border: 1px solid {COLORS['line']}; border-radius: 12px; gridline-color: #E8E0D7;
+    color: {COLORS['ink']}; background: {COLORS['surface']}; alternate-background-color: {COLORS['table_alt']};
+    border: 1px solid {COLORS['line']}; border-radius: 12px; gridline-color: {COLORS['grid']};
     outline: 0;
 }}
-QTableWidget::item {{ padding: 8px; border-bottom: 1px solid #E9E1D8; }}
+QTableWidget::item {{ padding: 8px; border-bottom: 1px solid {COLORS['item_line']}; }}
 QTableWidget::item:selected {{ color: {COLORS['ink']}; background: {COLORS['accent_soft']}; }}
 QHeaderView::section {{
-    color: #504942; background: #F4EEE7; border: none; border-right: 1px solid #E1D8CE;
-    border-bottom: 1px solid #D5CAC0; padding: 10px 8px; font-weight: 600;
+    color: {COLORS['header_text']}; background: {COLORS['header_bg']}; border: none; border-right: 1px solid {COLORS['header_line']};
+    border-bottom: 1px solid {COLORS['header_line']}; padding: 10px 8px; font-weight: 600;
 }}
 QTabWidget::pane {{ color: {COLORS['ink']}; border: 1px solid {COLORS['line']}; border-radius: 12px; background: {COLORS['surface']}; top: -1px; }}
-QTabBar::tab {{ color: #685F57; min-height: 36px; min-width: 84px; padding: 0 10px; background: transparent; font-weight: 500; }}
-QTabBar::tab:selected {{ color: {COLORS['accent_dark']}; border-bottom: 2px solid {COLORS['accent']}; background: #FFF9F4; }}
+QTabBar::tab {{ color: {COLORS['tab_text']}; min-height: 36px; min-width: 84px; padding: 0 10px; background: transparent; font-weight: 500; }}
+QTabBar::tab:selected {{ color: {COLORS['accent_hover']}; border-bottom: 2px solid {COLORS['accent']}; background: {COLORS['tab_selected_bg']}; }}
 QScrollArea {{ border: none; background: {COLORS['surface']}; }}
 QScrollArea > QWidget > QWidget, QWidget#panelBody {{ color: {COLORS['ink']}; background: {COLORS['surface']}; }}
 QCheckBox {{ color: {COLORS['ink']}; spacing: 8px; }}
-QCheckBox::indicator {{ width: 17px; height: 17px; border: 1px solid #BFB3A8; border-radius: 5px; background: #FFFDF9; }}
+QCheckBox::indicator {{ width: 17px; height: 17px; border: 1px solid {COLORS['check_line']}; border-radius: 5px; background: {COLORS['control']}; }}
 QCheckBox::indicator:checked {{ background: {COLORS['accent']}; border-color: {COLORS['accent']}; }}
 QScrollBar:vertical {{
     width: 14px; margin: 4px 2px; border: none; background: transparent;
 }}
 QScrollBar::handle:vertical {{
     min-height: 48px; margin: 0 2px; border: none; border-radius: 5px;
-    background: #C7B9AD;
+    background: {COLORS['scrollbar']};
 }}
-QScrollBar::handle:vertical:hover {{ background: #A99586; }}
+QScrollBar::handle:vertical:hover {{ background: {COLORS['scrollbar_hover']}; }}
 QScrollBar::handle:vertical:pressed {{ background: {COLORS['accent']}; }}
 QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical {{
     height: 0; border: none; background: transparent;
@@ -185,9 +246,9 @@ QScrollBar:horizontal {{
 }}
 QScrollBar::handle:horizontal {{
     min-width: 64px; margin: 2px 0; border: none; border-radius: 5px;
-    background: #C7B9AD;
+    background: {COLORS['scrollbar']};
 }}
-QScrollBar::handle:horizontal:hover {{ background: #A99586; }}
+QScrollBar::handle:horizontal:hover {{ background: {COLORS['scrollbar_hover']}; }}
 QScrollBar::handle:horizontal:pressed {{ background: {COLORS['accent']}; }}
 QScrollBar::sub-line:horizontal, QScrollBar::add-line:horizontal {{
     width: 0; border: none; background: transparent;
@@ -199,13 +260,13 @@ QSplitter::handle {{ background: transparent; width: 8px; height: 8px; }}
 """
 
 
-def line_icon(kind, color='#655D56'):
+def line_icon(kind, color=None):
     """Small single-colour line icons keep the navigation visually consistent."""
     pixmap = QPixmap(24, 24)
     pixmap.fill(Qt.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.Antialiasing)
-    painter.setPen(QPen(QColor(color), 1.7, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+    painter.setPen(QPen(QColor(color or COLORS['icon']), 1.7, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
     if kind == 'applications':
         painter.drawRoundedRect(QRectF(5, 3.5, 14, 17), 2.5, 2.5)
         painter.drawLine(QPointF(8, 8), QPointF(16, 8))
@@ -266,13 +327,13 @@ class AvatarWidget(QWidget):
             source_y = max(0, (scaled.height()-self.height())//2)
             painter.drawPixmap(self.rect(), scaled, scaled.rect().adjusted(source_x, source_y, -source_x, -source_y))
         else:
-            painter.fillPath(clip, QColor('#EED8CB'))
+            painter.fillPath(clip, QColor(COLORS['avatar_bg']))
             font = painter.font(); font.setPointSize(max(9, int(self._diameter*.22))); font.setBold(True)
-            painter.setFont(font); painter.setPen(QColor('#6E3C2C'))
+            painter.setFont(font); painter.setPen(QColor(COLORS['avatar_text']))
             painter.drawText(self.rect(), Qt.AlignCenter, self._initials())
         painter.restore()
         painter.setBrush(Qt.NoBrush)
-        painter.setPen(QPen(QColor('#B75334' if self._hovered else '#D6BCAA'), 2 if self._hovered else 1.2))
+        painter.setPen(QPen(QColor(COLORS['accent'] if self._hovered else COLORS['avatar_line']), 2 if self._hovered else 1.2))
         painter.drawEllipse(rect)
 
     def enterEvent(self, event):
@@ -285,6 +346,135 @@ class AvatarWidget(QWidget):
         if event.button() == Qt.LeftButton:
             self.clicked.emit()
         super().mousePressEvent(event)
+
+
+class ThemeSwitch(QWidget):
+    """Native PySide interpretation of the supplied sun/moon theme switch."""
+
+    toggled = Signal(bool)
+
+    def __init__(self, dark=False, parent=None):
+        super().__init__(parent)
+        self._dark = bool(dark)
+        self._progress = 1.0 if self._dark else 0.0
+        self._compact = False
+        self._animation = None
+        self.setFixedSize(86, 38)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFocusPolicy(Qt.StrongFocus)
+        self.setAccessibleName('Appearance theme')
+        self._update_accessibility()
+
+    def sizeHint(self):
+        return QSize(86, 38)
+
+    def get_progress(self):
+        return self._progress
+
+    def set_progress(self, value):
+        self._progress = max(0.0, min(1.0, float(value)))
+        self.update()
+
+    progress = Property(float, get_progress, set_progress)
+
+    def _update_accessibility(self):
+        target = 'light' if self._dark else 'dark'
+        self.setToolTip(f'Switch to {target} theme')
+        self.setAccessibleDescription(f'{"Dark" if self._dark else "Light"} theme active. Switch to {target} theme.')
+
+    def set_compact(self, compact):
+        self._compact = bool(compact)
+        self.setFixedSize(50 if compact else 86, 30 if compact else 38)
+        self.updateGeometry(); self.update()
+
+    def set_dark(self, dark, animate=True):
+        dark = bool(dark)
+        if dark == self._dark and abs(self._progress - float(dark)) < .001:
+            return
+        self._dark = dark
+        self._update_accessibility()
+        target = 1.0 if dark else 0.0
+        if not animate or reduce_motion_enabled():
+            self.set_progress(target)
+            return
+        if self._animation:
+            self._animation.stop()
+        animation = QPropertyAnimation(self, b'progress', self)
+        animation.setDuration(260)
+        animation.setStartValue(self._progress)
+        animation.setEndValue(target)
+        animation.setEasingCurve(QEasingCurve.OutCubic)
+        self._animation = animation
+        animation.start()
+
+    @staticmethod
+    def _mix(first, second, amount):
+        a, b = QColor(first), QColor(second)
+        return QColor(
+            round(a.red() + (b.red() - a.red()) * amount),
+            round(a.green() + (b.green() - a.green()) * amount),
+            round(a.blue() + (b.blue() - a.blue()) * amount),
+        )
+
+    def _toggle(self):
+        self.set_dark(not self._dark, animate=True)
+        self.toggled.emit(self._dark)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._toggle()
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter):
+            self._toggle(); event.accept(); return
+        super().keyPressEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        rect = QRectF(1.5, 1.5, self.width()-3, self.height()-3)
+        radius = rect.height()/2
+        painter.setPen(QPen(self._mix('#86AFC8', '#504A55', self._progress), 1))
+        painter.setBrush(self._mix('#5D91B2', '#222129', self._progress))
+        painter.drawRoundedRect(rect, radius, radius)
+
+        # Clouds recede as stars arrive. Both are deliberately quiet at the
+        # compact sidebar size so the control remains legible, not toy-like.
+        painter.save(); painter.setOpacity(1.0-self._progress)
+        painter.setPen(Qt.NoPen); painter.setBrush(QColor('#EAF5F6'))
+        base_y = rect.bottom()-5
+        for x, size in ((self.width()*.55, 7), (self.width()*.68, 9), (self.width()*.82, 6)):
+            painter.drawEllipse(QPointF(x, base_y), size, size*.62)
+        painter.restore()
+        painter.save(); painter.setOpacity(self._progress)
+        painter.setPen(Qt.NoPen); painter.setBrush(QColor('#F4EDE6'))
+        for x, y, size in ((.18,.34,1.5),(.30,.68,1.1),(.43,.26,1.2),(.55,.58,1.0)):
+            painter.drawEllipse(QPointF(rect.left()+rect.width()*x, rect.top()+rect.height()*y), size, size)
+        painter.restore()
+
+        diameter = rect.height()-8
+        travel = rect.width()-diameter-8
+        cx = rect.left()+4+diameter/2+travel*self._progress
+        cy = rect.center().y()
+        for extra, alpha in ((8, 28), (4, 38)):
+            halo = QColor('#FFFFFF'); halo.setAlpha(alpha)
+            painter.setBrush(halo); painter.setPen(Qt.NoPen)
+            painter.drawEllipse(QPointF(cx, cy), diameter/2+extra, diameter/2+extra)
+        painter.setBrush(self._mix('#F1C75B', '#D3D5D9', self._progress))
+        painter.setPen(QPen(self._mix('#C69B35', '#9298A2', self._progress), 1))
+        painter.drawEllipse(QPointF(cx, cy), diameter/2, diameter/2)
+        if self._progress > .05:
+            painter.save(); painter.setOpacity(self._progress)
+            painter.setPen(Qt.NoPen); painter.setBrush(QColor('#9AA1AD'))
+            for dx, dy, size in ((-.18,-.16,.14),(.20,.12,.10),(-.05,.23,.08)):
+                painter.drawEllipse(QPointF(cx+diameter*dx, cy+diameter*dy), diameter*size, diameter*size)
+            painter.restore()
+        if self.hasFocus():
+            painter.setBrush(Qt.NoBrush); painter.setPen(QPen(QColor(COLORS['accent']), 2))
+            painter.drawRoundedRect(rect.adjusted(-1,-1,1,1), radius, radius)
 
 
 class WarmComboBox(QComboBox):
@@ -310,17 +500,19 @@ class Backdrop(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         gradient = QLinearGradient(0, 0, self.width(), self.height())
-        gradient.setColorAt(0, QColor('#F8F4EE'))
-        gradient.setColorAt(.52, QColor('#F4EFE8'))
-        gradient.setColorAt(1, QColor('#EEE7DE'))
+        gradient.setColorAt(0, QColor(COLORS['canvas_0']))
+        gradient.setColorAt(.52, QColor(COLORS['canvas_1']))
+        gradient.setColorAt(1, QColor(COLORS['canvas_2']))
         painter.fillRect(self.rect(), gradient)
-        painter.setPen(QPen(QColor(151, 102, 75, 22), 2.0, Qt.SolidLine, Qt.RoundCap))
+        route_color = QColor(COLORS['route']); route_color.setAlpha(32)
+        painter.setPen(QPen(route_color, 2.0, Qt.SolidLine, Qt.RoundCap))
         route = QPainterPath(QPointF(-30, self.height() * .72))
         route.cubicTo(self.width() * .22, self.height() * .58, self.width() * .36, self.height() * .83, self.width() * .58, self.height() * .65)
         route.cubicTo(self.width() * .72, self.height() * .54, self.width() * .84, self.height() * .68, self.width() + 30, self.height() * .48)
         painter.drawPath(route)
         for x, y in ((.18,.64),(.39,.74),(.61,.63),(.82,.61)):
-            painter.setBrush(QColor(247, 240, 232, 210))
+            node_color = QColor(COLORS['node']); node_color.setAlpha(210)
+            painter.setBrush(node_color)
             painter.drawEllipse(QPointF(self.width()*x, self.height()*y), 5, 5)
         super().paintEvent(event)
 
@@ -430,8 +622,8 @@ class StartupWindow(QWidget):
         card.setObjectName('startupCard')
         card.setStyleSheet(f"""
             QFrame#startupCard {{
-                background: #F7F3EC;
-                border: 1px solid #E5D7CA;
+                background: {COLORS['startup_bg']};
+                border: 1px solid {COLORS['startup_line']};
                 border-radius: 34px;
             }}
             QLabel#startupTitle {{
@@ -441,7 +633,7 @@ class StartupWindow(QWidget):
                 font-weight: 550;
             }}
             QLabel#startupSignature {{
-                color: #8A5C48;
+                color: {COLORS['startup_signature']};
                 font-family: "Segoe UI Variable Text", "Segoe UI";
                 font-size: 14px;
                 font-weight: 600;
@@ -574,6 +766,10 @@ class MainWindow(QMainWindow):
         self.resize(1500, 900)
         self.setMinimumSize(860, 560)
         self.settings = load_settings()
+        self.current_theme = self.settings.get('theme', 'light') if self.settings.get('theme') in ('light','dark') else 'light'
+        set_active_theme(self.current_theme)
+        if QApplication.instance():
+            apply_application_palette(QApplication.instance())
         self.selected_id = None
         self._bulk_running = False
         self._conversation_syncing = False
@@ -582,7 +778,7 @@ class MainWindow(QMainWindow):
         self._gmail_sync_cancel = threading.Event()
         self._filter_widgets = []
         self._build_ui()
-        self.setStyleSheet(APP_QSS)
+        self.setStyleSheet(build_app_qss())
         self.task_ok.connect(self._task_complete)
         self.task_error.connect(self._task_failed)
         self.task_progress.connect(self._task_progress)
@@ -627,6 +823,7 @@ class MainWindow(QMainWindow):
         self.nav_group.setExclusive(True)
         items = [('Applications', 'applications'), ('Conversations', 'conversations'), ('My Workspace', 'workspace')]
         self.nav_buttons = []
+        self.nav_icon_kinds = []
         for index, (text, icon) in enumerate(items):
             button = QPushButton(text)
             button.setObjectName('nav')
@@ -635,9 +832,14 @@ class MainWindow(QMainWindow):
             button.clicked.connect(lambda checked=False, i=index: self.switch_page(i))
             self.nav_group.addButton(button, index)
             self.nav_buttons.append(button)
+            self.nav_icon_kinds.append(icon)
             layout.addWidget(button)
         self.nav_buttons[0].setChecked(True)
         layout.addStretch()
+        self.theme_switch = ThemeSwitch(self.current_theme == 'dark')
+        self.theme_switch.toggled.connect(self._theme_toggled)
+        layout.addWidget(self.theme_switch, 0, Qt.AlignHCenter)
+        layout.addSpacing(10)
         privacy = QLabel('Private profile\nGmail-synced applications')
         privacy.setObjectName('muted')
         privacy.setWordWrap(True)
@@ -666,10 +868,10 @@ class MainWindow(QMainWindow):
         self.search.setMinimumWidth(280)
         self.search.textChanged.connect(lambda _text: self.refresh())
         header.addWidget(self.search)
-        import_button = QPushButton('Import Excel')
-        import_button.setIcon(line_icon('import'))
-        import_button.clicked.connect(self.import_file)
-        header.addWidget(import_button)
+        self.import_button = QPushButton('Import Excel')
+        self.import_button.setIcon(line_icon('import'))
+        self.import_button.clicked.connect(self.import_file)
+        header.addWidget(self.import_button)
         outer.addLayout(header)
         outer.addWidget(self._build_metrics())
         outer.addWidget(self._build_filters())
@@ -959,6 +1161,7 @@ class MainWindow(QMainWindow):
             self.splitter.setSizes([420, 360] if narrow else [920, 420])
         compact_nav = self.width() < 980
         self.nav_panel.setFixedWidth(70 if compact_nav else 188)
+        self.theme_switch.set_compact(compact_nav)
         for button, full in zip(self.nav_buttons, ('Applications','Conversations','My Workspace')):
             button.setText('' if compact_nav else full)
             button.setToolTip(full)
@@ -968,6 +1171,37 @@ class MainWindow(QMainWindow):
     def switch_page(self, index):
         self.nav_buttons[index].setChecked(True)
         self.pages.setCurrentIndexAnimated(index)
+
+    def _theme_toggled(self, dark):
+        self.current_theme = 'dark' if dark else 'light'
+        set_active_theme(self.current_theme)
+        if QApplication.instance():
+            apply_application_palette(QApplication.instance())
+        self.setStyleSheet(build_app_qss())
+        for button, kind in zip(self.nav_buttons, self.nav_icon_kinds):
+            button.setIcon(line_icon(kind))
+        self.import_button.setIcon(line_icon('import'))
+        self.nav_avatar.update(); self.workspace_avatar.update()
+        self.centralWidget().update()
+        self._apply_windows_titlebar()
+        self.settings['theme'] = self.current_theme
+        save_settings(self.settings)
+
+    def _apply_windows_titlebar(self):
+        if sys.platform != 'win32' or not self.isVisible():
+            return
+        try:
+            import ctypes
+            hwnd = int(self.winId())
+            immersive_dark = ctypes.c_int(1 if self.current_theme == 'dark' else 0)
+            for attribute in (20, 19):
+                result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    hwnd, attribute, ctypes.byref(immersive_dark), ctypes.sizeof(immersive_dark)
+                )
+                if result == 0:
+                    break
+        except Exception:
+            pass
 
     @staticmethod
     def _region_label(row):
@@ -1708,19 +1942,9 @@ def main():
     application = QApplication(sys.argv)
     sys.excepthook = _report_unhandled_exception
     application.setStyle('Fusion')
-    palette = QPalette()
-    palette.setColor(QPalette.Window, QColor('#F4EFE8'))
-    palette.setColor(QPalette.WindowText, QColor(COLORS['ink']))
-    palette.setColor(QPalette.Base, QColor('#FFFDF9'))
-    palette.setColor(QPalette.AlternateBase, QColor('#FAF6F0'))
-    palette.setColor(QPalette.Text, QColor(COLORS['ink']))
-    palette.setColor(QPalette.Button, QColor('#FFFDF9'))
-    palette.setColor(QPalette.ButtonText, QColor(COLORS['ink']))
-    palette.setColor(QPalette.Highlight, QColor(COLORS['accent_soft']))
-    palette.setColor(QPalette.HighlightedText, QColor(COLORS['ink']))
-    palette.setColor(QPalette.ToolTipBase, QColor('#2B2724'))
-    palette.setColor(QPalette.ToolTipText, QColor('#FFF9F3'))
-    application.setPalette(palette)
+    saved_theme = load_settings().get('theme', 'light')
+    set_active_theme(saved_theme if saved_theme in ('light','dark') else 'light')
+    apply_application_palette(application)
     application.setApplicationName('Cisty')
     application.setApplicationDisplayName('Cisty')
 
@@ -1758,18 +1982,7 @@ def main():
         window.show()
         window.raise_()
         window.activateWindow()
-        if sys.platform == 'win32':
-            try:
-                import ctypes
-                hwnd = int(window.winId())
-                light = ctypes.c_int(0)
-                # Windows 10/11: explicitly keep the native title bar in light mode.
-                for attribute in (20, 19):
-                    ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                        hwnd, attribute, ctypes.byref(light), ctypes.sizeof(light)
-                    )
-            except Exception:
-                pass
+        window._apply_windows_titlebar()
 
     startup.finished.connect(reveal_main_window)
     startup.start()
