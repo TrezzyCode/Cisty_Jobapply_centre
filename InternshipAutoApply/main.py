@@ -1,5 +1,6 @@
 import os, sys, csv, json, sqlite3, webbrowser, threading, tkinter as tk
 import math, time
+import shutil
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
 from urllib.parse import quote
@@ -10,8 +11,35 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
 APP_DIR = Path(__file__).resolve().parent
-DB_PATH = APP_DIR / 'internship_applications.db'
-CONFIG_PATH = APP_DIR / 'settings.json'
+# PyInstaller extracts bundled data into _MEIPASS; source runs use this folder.
+RESOURCE_DIR = Path(getattr(sys, '_MEIPASS', APP_DIR))
+
+
+def _user_data_dir():
+    """Keep each Windows user's applications and credentials outside the app install folder."""
+    root = Path(os.environ.get('LOCALAPPDATA') or APP_DIR)
+    data_dir = root / 'IT Internship Auto Apply'
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        # Development sandboxes or unusually locked-down Windows profiles may
+        # block LOCALAPPDATA. Keep the app usable without losing data.
+        data_dir = APP_DIR / 'user_data'
+        data_dir.mkdir(parents=True, exist_ok=True)
+    # Upgrade existing source-folder installs without deleting or moving originals.
+    for filename in ('internship_applications.db', 'settings.json', 'token_messages.json'):
+        destination = data_dir / filename
+        legacy = APP_DIR / filename
+        if not destination.exists() and legacy.exists():
+            try: shutil.copy2(legacy, destination)
+            except OSError: pass
+    return data_dir
+
+
+DATA_DIR = _user_data_dir()
+DB_PATH = DATA_DIR / 'internship_applications.db'
+CONFIG_PATH = DATA_DIR / 'settings.json'
+TOKEN_PATH = DATA_DIR / 'token_messages.json'
 PUTRAJAYA_LINE = [
     'Metro Prima', 'Kepong Baru', 'Jinjang', 'Sri Delima', 'Kampung Batu',
     'Kentonmen', 'Jalan Ipoh', 'Sentul Barat', 'Titiwangsa',
@@ -32,7 +60,8 @@ LINE_CHOICES = ['All MRT / LRT / Monorail'] + list(TRANSIT_LINES)
 DEFAULTS = {
     'student_name': '', 'course': '', 'internship_period': '', 'phone': '',
     'sender_email': '', 'resume_path': '', 'credentials_path': '',
-    'email_subject': 'Application for IT Internship – {company}', 'geoapify_api_key': ''
+    'email_subject': 'Application for IT Internship – {company}', 'geoapify_api_key': '',
+    'profile_avatar_path': '', 'profile_ready': False
 }
 
 
@@ -52,7 +81,8 @@ def db():
         'email_source': "TEXT DEFAULT ''", 'email_verified': 'INTEGER DEFAULT 0',
         'email_verified_at': "TEXT DEFAULT ''", 'last_contact': "TEXT DEFAULT ''",
         'station_line': "TEXT DEFAULT ''", 'walk_distance_meters': 'INTEGER',
-        'latitude': 'REAL', 'longitude': 'REAL'
+        'latitude': 'REAL', 'longitude': 'REAL',
+        'station_calculation_source': "TEXT DEFAULT ''", 'station_calculated_at': "TEXT DEFAULT ''"
     }.items():
         if name not in columns:
             con.execute(f'ALTER TABLE companies ADD COLUMN {name} {definition}')
@@ -177,59 +207,145 @@ def import_excel(path):
     return added, skipped, email_candidates
 
 
+class ScrollablePanel(ttk.Frame):
+    """A notebook/page panel whose lower controls remain reachable on short screens."""
+    def __init__(self, parent, style='Review.TFrame', background='#FFFFFF'):
+        super().__init__(parent, style=style)
+        self.canvas=tk.Canvas(self, background=background, highlightthickness=0, borderwidth=0)
+        self.scrollbar=ttk.Scrollbar(self, orient='vertical', command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        self.canvas.pack(side='left', fill='both', expand=True)
+        self.scrollbar.pack(side='right', fill='y')
+        self.body=ttk.Frame(self.canvas, style=style, padding=10)
+        self._window=self.canvas.create_window((0,0), window=self.body, anchor='nw')
+        self.body.bind('<Configure>', self._sync_scroll_region)
+        self.canvas.bind('<Configure>', self._sync_width)
+        self.canvas.bind('<Enter>', self._bind_mousewheel)
+        self.canvas.bind('<Leave>', self._unbind_mousewheel)
+
+    def _sync_scroll_region(self, _event=None):
+        self.canvas.configure(scrollregion=self.canvas.bbox('all'))
+
+    def _sync_width(self, event):
+        self.canvas.itemconfigure(self._window, width=event.width)
+
+    def _bind_mousewheel(self, _event=None):
+        self.canvas.bind_all('<MouseWheel>', self._mousewheel)
+
+    def _unbind_mousewheel(self, _event=None):
+        self.canvas.unbind_all('<MouseWheel>')
+
+    def _mousewheel(self, event):
+        self.canvas.yview_scroll(int(-event.delta / 120), 'units')
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title('IT Internship Auto Apply | Gmail')
-        self.geometry('1400x820'); self.minsize(1100,650)
+        self.geometry('1500x900'); self.minsize(860,560)
         self.settings = load_settings(); self.selected_id = None; self._conversation_syncing = False; self._bulk_calculating = False
         self._style(); self._build(); self.refresh()
+        if not self.settings.get('profile_ready'):
+            self.after(150, lambda: self.show_workspace_settings(onboarding=True))
         self.after(60000, self._auto_refresh_conversation)
 
     def _style(self):
+        self.configure(bg='#F7F8FA')
         s=ttk.Style(self); s.theme_use('clam')
-        s.configure('Treeview', rowheight=27, font=('Segoe UI',9))
-        s.configure('Treeview.Heading', font=('Segoe UI',9,'bold'))
-        s.configure('Title.TLabel', font=('Segoe UI',17,'bold'))
-        s.configure('Hint.TLabel', foreground='#555')
-        s.configure('Verified.TLabel', foreground='#167d36')
-        s.configure('Warning.TLabel', foreground='#a35b00')
+        s.configure('.', font=('Segoe UI',10), background='#F7F8FA', foreground='#172033')
+        s.configure('App.TFrame', background='#F7F8FA')
+        s.configure('Header.TFrame', background='#162737')
+        s.configure('Surface.TFrame', background='#FFFFFF', relief='solid', borderwidth=1, bordercolor='#D9E2EC')
+        s.configure('Toolbar.TFrame', background='#FFFFFF')
+        s.configure('Review.TFrame', background='#FFFFFF')
+        s.configure('Stats.TFrame', background='#EAF3FB')
+        s.configure('Title.TLabel', font=('Segoe UI Semibold',19), foreground='#FFFFFF', background='#162737')
+        s.configure('Subtitle.TLabel', font=('Segoe UI',10), foreground='#D5E0E8', background='#162737')
+        s.configure('PageTitle.TLabel', font=('Segoe UI Semibold',18), foreground='#172033', background='#F7F8FA')
+        s.configure('PageSubtitle.TLabel', font=('Segoe UI',10), foreground='#52667A', background='#F7F8FA')
+        s.configure('Section.TLabel', font=('Segoe UI Semibold',12), foreground='#102A43', background='#FFFFFF')
+        s.configure('Stats.TLabel', font=('Segoe UI Semibold',10), foreground='#0B4F71', background='#EAF3FB')
+        s.configure('Hint.TLabel', foreground='#52667A', background='#FFFFFF')
+        s.configure('Verified.TLabel', foreground='#117A37', background='#FFFFFF')
+        s.configure('Warning.TLabel', foreground='#A35B00', background='#FFFFFF')
+        s.configure('TLabel', background='#FFFFFF', foreground='#172033')
+        s.configure('TEntry', fieldbackground='#FFFFFF', bordercolor='#B8C7D6', lightcolor='#B8C7D6', padding=6)
+        s.configure('TCombobox', fieldbackground='#FFFFFF', background='#FFFFFF', bordercolor='#B8C7D6', lightcolor='#B8C7D6', padding=5)
+        s.map('TCombobox', fieldbackground=[('readonly','#FFFFFF')], selectbackground=[('readonly','#DCECF8')], selectforeground=[('readonly','#172033')])
+        s.configure('TCheckbutton', background='#FFFFFF', foreground='#172033')
+        s.configure('Primary.TButton', font=('Segoe UI Semibold',10), background='#0369A1', foreground='#FFFFFF', padding=(12,7), borderwidth=0)
+        s.map('Primary.TButton', background=[('active','#075985'),('disabled','#9DB8CA')], foreground=[('disabled','#F8FBFE')])
+        s.configure('Action.TButton', font=('Segoe UI Semibold',10), background='#137A3A', foreground='#FFFFFF', padding=(12,7), borderwidth=0)
+        s.map('Action.TButton', background=[('active','#0F6330'),('disabled','#A8CDB5')])
+        s.configure('Subtle.TButton', font=('Segoe UI',10), background='#EAF1F7', foreground='#183B56', padding=(11,7), borderwidth=0)
+        s.map('Subtle.TButton', background=[('active','#D9E7F1'),('disabled','#EFF3F6')], foreground=[('disabled','#8293A3')])
+        s.configure('Outline.TButton', font=('Segoe UI',10), background='#FFFFFF', foreground='#0369A1', padding=(11,7), borderwidth=1, bordercolor='#9BC4DE')
+        s.map('Outline.TButton', background=[('active','#F0F8FD')])
+        s.configure('HeaderLink.TButton', font=('Segoe UI Semibold',10), background='#162737', foreground='#DCE9F2', padding=(11,7), borderwidth=0)
+        s.map('HeaderLink.TButton', background=[('active','#233B50')], foreground=[('active','#FFFFFF')])
+        s.configure('Treeview', background='#FFFFFF', fieldbackground='#FFFFFF', foreground='#172033', rowheight=31, font=('Segoe UI',9), bordercolor='#D9E2EC')
+        s.configure('Treeview.Heading', background='#EAF1F7', foreground='#183B56', font=('Segoe UI Semibold',9), relief='flat', padding=(8,8))
+        s.map('Treeview', background=[('selected','#D9ECF9')], foreground=[('selected','#0B2942')])
+        s.configure('TNotebook', background='#FFFFFF', borderwidth=0)
+        s.configure('TNotebook.Tab', font=('Segoe UI Semibold',10), background='#EAF1F7', foreground='#52667A', padding=(13,9))
+        s.map('TNotebook.Tab', background=[('selected','#FFFFFF')], foreground=[('selected','#0B4F71')])
+        s.configure('TLabelframe', background='#FFFFFF', bordercolor='#D9E2EC', relief='solid')
+        s.configure('TLabelframe.Label', background='#FFFFFF', foreground='#183B56', font=('Segoe UI Semibold',10))
 
     def _build(self):
-        top=ttk.Frame(self,padding=12); top.pack(fill='x')
-        ttk.Label(top,text='IT Internship Auto Apply',style='Title.TLabel').pack(side='left')
-        ttk.Label(top,text='Gmail • verified contacts • KL MRT/LRT/Monorail distance',style='Hint.TLabel').pack(side='left',padx=18)
-        bar=ttk.Frame(self,padding=(12,0,12,8)); bar.pack(fill='x')
-        ttk.Button(bar,text='Import Excel',command=self.import_file).pack(side='left',padx=3)
-        ttk.Button(bar,text='Profile & Gmail Setup',command=self.profile_dialog).pack(side='left',padx=3)
-        ttk.Button(bar,text='Select Resume PDF',command=self.choose_resume).pack(side='left',padx=3)
-        ttk.Button(bar,text='Refresh list',command=self.refresh).pack(side='left',padx=3)
-        self.bulk_station_button=ttk.Button(bar,text='Auto-calculate all nearest stations',command=self.calculate_all_nearest_stations)
-        self.bulk_station_button.pack(side='left',padx=3)
-        ttk.Label(bar,text='Search:').pack(side='left',padx=(20,4))
-        self.search=tk.StringVar(); ent=ttk.Entry(bar,textvariable=self.search,width=30); ent.pack(side='left'); ent.bind('<KeyRelease>',lambda e:self.refresh())
-        filters=ttk.Frame(self,padding=(12,0,12,8)); filters.pack(fill='x')
+        shell=ttk.Frame(self,style='App.TFrame'); shell.pack(fill='both',expand=True)
+        header=ttk.Frame(shell,style='Header.TFrame',padding=(22,16)); header.pack(fill='x')
+        title_block=ttk.Frame(header,style='Header.TFrame'); title_block.pack(side='left')
+        ttk.Label(title_block,text='Internship workspace',style='Title.TLabel').pack(anchor='w')
+        ttk.Label(title_block,text='Keep your companies, transit choices and application replies in one private place.',style='Subtitle.TLabel',wraplength=450).pack(anchor='w',pady=(3,0))
+        ttk.Button(header,text='My workspace',style='Outline.TButton',command=self.show_workspace_settings).pack(side='right',pady=4)
+        ttk.Button(header,text='Applications',style='HeaderLink.TButton',command=self.show_dashboard).pack(side='right',padx=(0,5),pady=4)
+
+        self.page_host=ttk.Frame(shell,style='App.TFrame'); self.page_host.pack(fill='both',expand=True)
+        self.dashboard_page=ttk.Frame(self.page_host,style='App.TFrame')
+        self.settings_page=ttk.Frame(self.page_host,style='App.TFrame')
+        self.dashboard_page.pack(fill='both',expand=True)
+        content=ttk.Frame(self.dashboard_page,style='App.TFrame',padding=(16,14,16,16)); content.pack(fill='both',expand=True)
+        toolbar=ttk.Frame(content,style='Surface.TFrame',padding=10); toolbar.pack(fill='x')
+        ttk.Button(toolbar,text='Import company Excel',style='Primary.TButton',command=self.import_file).grid(row=0,column=0,sticky='w',padx=(0,7),pady=(0,4))
+        ttk.Button(toolbar,text='Choose resume PDF',style='Subtle.TButton',command=self.choose_resume).grid(row=0,column=1,sticky='w',padx=(0,7),pady=(0,4))
+        self.bulk_station_button=ttk.Button(toolbar,text='Auto-calculate all nearest stations',style='Primary.TButton',command=self.calculate_all_nearest_stations)
+        self.bulk_station_button.grid(row=0,column=2,sticky='w',pady=(0,4))
+        self.recalculate_station_button=ttk.Button(toolbar,text='Recalculate scope (overwrite)',style='Subtle.TButton',command=lambda:self.calculate_all_nearest_stations(force=True))
+        self.recalculate_station_button.grid(row=1,column=0,sticky='w',padx=(0,7))
+        ttk.Button(toolbar,text='Refresh list',style='Subtle.TButton',command=self.refresh).grid(row=1,column=1,sticky='w',padx=(0,7))
+        ttk.Label(toolbar,text='Search',style='Hint.TLabel').grid(row=1,column=3,sticky='e',padx=(12,6))
+        self.search=tk.StringVar(); ent=ttk.Entry(toolbar,textvariable=self.search,width=28); ent.grid(row=1,column=4,sticky='ew'); ent.bind('<KeyRelease>',lambda e:self.refresh())
+        toolbar.columnconfigure(4,weight=1)
+
+        filters=ttk.Labelframe(content,text='Find companies',padding=(12,9)); filters.pack(fill='x',pady=(12,8))
         self.industry_filter=tk.StringVar(value='All industries')
         self.region_filter=tk.StringVar(value='All regions')
         self.distance_filter=tk.StringVar(value='All distances')
         self.status_filter=tk.StringVar(value='All applications')
-        self.industry_combo=self._filter(filters,'Industry',self.industry_filter,0,28)
-        self.region_combo=self._filter(filters,'Region',self.region_filter,1,26)
+        self.industry_combo=self._filter(filters,'Industry',self.industry_filter,0,0,28)
+        self.region_combo=self._filter(filters,'Region',self.region_filter,0,1,26)
         self.industry_combo.bind('<<ComboboxSelected>>',self._scope_changed)
         self.region_combo.bind('<<ComboboxSelected>>',self._scope_changed)
-        self.distance_combo=self._filter(filters,'Distance',self.distance_filter,2,20,
+        self.distance_combo=self._filter(filters,'Distance',self.distance_filter,1,0,20,
                                          ['All distances','≤ 1 km straight-line','≤ 3 km straight-line','≤ 5 min walk','≤ 10 min walk','Route verified','Distance unknown'])
-        self.status_combo=self._filter(filters,'Application',self.status_filter,3,20,
+        self.status_combo=self._filter(filters,'Application',self.status_filter,1,1,20,
                                        ['All applications','Ready to apply','Not applied','Draft ready','Applied','Replied','Interview','Rejected','No response'])
         self.line_filter=tk.StringVar(value='All transit lines')
-        ttk.Label(filters,text='Transit line:').grid(row=1,column=0,sticky='w',pady=(6,0))
+        ttk.Label(filters,text='Transit line').grid(row=2,column=0,sticky='w',pady=(6,0))
         self.line_combo=ttk.Combobox(filters,textvariable=self.line_filter,state='readonly',width=28,values=['All transit lines']+list(TRANSIT_LINES))
-        self.line_combo.grid(row=1,column=1,sticky='w',padx=(0,14),pady=(6,0)); self.line_combo.bind('<<ComboboxSelected>>',lambda e:self.refresh())
+        self.line_combo.grid(row=2,column=1,sticky='ew',padx=(0,14),pady=(6,0)); self.line_combo.bind('<<ComboboxSelected>>',lambda e:self.refresh())
+        filters.columnconfigure(1,weight=1); filters.columnconfigure(3,weight=1)
 
-        stats=ttk.Frame(self,padding=(12,0,12,8)); stats.pack(fill='x')
-        self.stats_label=ttk.Label(stats,text=''); self.stats_label.pack(anchor='w')
-        main=ttk.Panedwindow(self,orient='horizontal'); main.pack(fill='both',expand=True,padx=12,pady=4)
-        left=ttk.Frame(main); right=ttk.Frame(main,padding=10); main.add(left,weight=4); main.add(right,weight=3)
+        stats=ttk.Frame(content,style='Stats.TFrame',padding=(12,8)); stats.pack(fill='x',pady=(0,8))
+        self.stats_label=ttk.Label(stats,text='',style='Stats.TLabel'); self.stats_label.pack(anchor='w')
+        self.main_pane=ttk.Panedwindow(content,orient='horizontal'); self.main_pane.pack(fill='both',expand=True)
+        self.main_orientation='horizontal'; self.main_pane.bind('<Configure>',self._adapt_main_layout)
+        left=ttk.Frame(self.main_pane,style='Surface.TFrame',padding=10); right=ttk.Frame(self.main_pane,style='Surface.TFrame',padding=10); self.main_pane.add(left,weight=5); self.main_pane.add(right,weight=4)
+        list_header=ttk.Frame(left,style='Surface.TFrame'); list_header.grid(row=0,column=0,columnspan=2,sticky='ew',pady=(0,8))
+        ttk.Label(list_header,text='Companies',style='Section.TLabel').pack(side='left')
+        ttk.Label(list_header,text='Select a company to review its contact, transit and application details.',style='Hint.TLabel').pack(side='left',padx=12)
         cols=('name','industry','city','state','station','walk','contact','status')
         self.tree=ttk.Treeview(left,columns=cols,show='headings',selectmode='browse')
         widths={'name':230,'industry':145,'city':105,'state':120,'station':145,'walk':70,'contact':112,'status':100}
@@ -237,15 +353,19 @@ class App(tk.Tk):
         for c in cols: self.tree.heading(c,text=heads[c]); self.tree.column(c,width=widths[c],anchor='w')
         vs=ttk.Scrollbar(left,orient='vertical',command=self.tree.yview); hs=ttk.Scrollbar(left,orient='horizontal',command=self.tree.xview)
         self.tree.configure(yscrollcommand=vs.set,xscrollcommand=hs.set)
-        self.tree.grid(row=0,column=0,sticky='nsew'); vs.grid(row=0,column=1,sticky='ns'); hs.grid(row=1,column=0,sticky='ew')
-        left.rowconfigure(0,weight=1); left.columnconfigure(0,weight=1); self.tree.bind('<<TreeviewSelect>>',self.on_select)
+        self.tree.grid(row=1,column=0,sticky='nsew'); vs.grid(row=1,column=1,sticky='ns'); hs.grid(row=2,column=0,sticky='ew')
+        left.rowconfigure(1,weight=1); left.columnconfigure(0,weight=1); self.tree.bind('<<TreeviewSelect>>',self.on_select)
 
         notebook=ttk.Notebook(right); notebook.pack(fill='both',expand=True)
-        review=ttk.Frame(notebook,padding=10); conversation=ttk.Frame(notebook,padding=10)
-        notebook.add(review,text='Company review & apply'); notebook.add(conversation,text='System email conversation')
-        ttk.Label(review,text='Company & route review',font=('Segoe UI',12,'bold')).pack(anchor='w',pady=(0,8))
-        self.detail=tk.Text(review,height=7,wrap='word',font=('Segoe UI',9)); self.detail.pack(fill='x')
-        form=ttk.Frame(review); form.pack(fill='x',pady=8)
+        review_panel=ScrollablePanel(notebook)
+        compose_panel=ScrollablePanel(notebook)
+        conversation_panel=ScrollablePanel(notebook)
+        review=review_panel.body; compose=compose_panel.body; conversation=conversation_panel.body
+        notebook.add(review_panel,text='Company review'); notebook.add(compose_panel,text='Email & apply'); notebook.add(conversation_panel,text='System email conversation')
+        ttk.Label(review,text='Company review',style='Section.TLabel').pack(anchor='w',pady=(0,4))
+        ttk.Label(review,text='Verify the recruitment contact and nearest station before preparing an application.',style='Hint.TLabel',wraplength=430).pack(anchor='w',pady=(0,9))
+        self.detail=tk.Text(review,height=5,wrap='word',font=('Segoe UI',9),bg='#F7FAFC',fg='#243B53',relief='flat',highlightthickness=1,highlightbackground='#D9E2EC',padx=9,pady=8); self.detail.pack(fill='x')
+        form=ttk.Labelframe(review,text='Contact & transit',padding=(10,7)); form.pack(fill='x',pady=10)
         self.hr_var=tk.StringVar(); self.station_line_var=tk.StringVar(value='MRT Putrajaya Line'); self.station_var=tk.StringVar(value='Metro Prima'); self.walk_var=tk.StringVar(); self.walk_distance_var=tk.StringVar(); self.status_var=tk.StringVar(value='Not applied'); self.email_verified_var=tk.BooleanVar(value=False)
         self._field(form,'Contact email (candidate)',self.hr_var,0)
         self.email_source_label=ttk.Label(form,text='Source: —',style='Hint.TLabel',wraplength=350)
@@ -262,38 +382,48 @@ class App(tk.Tk):
         ttk.Label(form,text='Application status').grid(row=7,column=0,sticky='w',pady=3)
         ttk.Combobox(form,textvariable=self.status_var,state='readonly',values=['Not applied','Draft ready','Applied','Replied','Interview','Rejected','No response'],width=35).grid(row=7,column=1,sticky='ew',pady=3)
         form.columnconfigure(1,weight=1)
-        ttk.Button(review,text='Save company / route details',command=self.save_company).pack(fill='x',pady=3)
-        ttk.Button(review,text='Calculate selected company station',command=self.calculate_nearest_station).pack(fill='x',pady=3)
+        ttk.Button(review,text='Save verified company details',style='Primary.TButton',command=self.save_company).pack(fill='x',pady=(0,5))
+        ttk.Button(review,text='Calculate selected company station',style='Subtle.TButton',command=self.calculate_nearest_station).pack(fill='x',pady=3)
         ttk.Label(review,text='Free geocoding by Geoapify / OpenStreetMap data',style='Hint.TLabel').pack(anchor='w',pady=(0,3))
-        ttk.Button(review,text='Open Google Maps route',command=self.open_map).pack(fill='x',pady=3)
-        ttk.Separator(review).pack(fill='x',pady=9)
-        ttk.Label(review,text='Email preview',font=('Segoe UI',12,'bold')).pack(anchor='w')
-        self.preview=tk.Text(review,height=10,wrap='word',font=('Segoe UI',9)); self.preview.pack(fill='both',expand=True,pady=5)
-        actions=ttk.Frame(review); actions.pack(fill='x')
-        ttk.Button(actions,text='Generate preview',command=self.generate_preview).pack(side='left',expand=True,fill='x',padx=2)
-        ttk.Button(actions,text='Create Gmail Draft',command=lambda:self.gmail_action(send=False)).pack(side='left',expand=True,fill='x',padx=2)
-        ttk.Button(actions,text='Review & Send',command=lambda:self.gmail_action(send=True)).pack(side='left',expand=True,fill='x',padx=2)
-        ttk.Label(review,text='Safety: no email is sent until you review the recipient, message and attachment, then confirm.',style='Hint.TLabel',wraplength=420).pack(anchor='w',pady=(7,0))
+        ttk.Button(review,text='Open route in Google Maps',style='Outline.TButton',command=self.open_map).pack(fill='x',pady=3)
 
-        ttk.Label(conversation,text='Emails sent from this app only',font=('Segoe UI',12,'bold')).pack(anchor='w')
+        ttk.Label(compose,text='Prepare and send',style='Section.TLabel').pack(anchor='w',pady=(0,4))
+        ttk.Label(compose,text='Generate the message, create a Gmail draft, then review the recipient and attachment before sending.',style='Hint.TLabel',wraplength=430).pack(anchor='w',pady=(0,9))
+        self.preview=tk.Text(compose,height=18,wrap='word',font=('Segoe UI',9),bg='#F7FAFC',fg='#243B53',relief='flat',highlightthickness=1,highlightbackground='#D9E2EC',padx=9,pady=8); self.preview.pack(fill='both',expand=True,pady=(0,9))
+        actions=ttk.Frame(compose,style='Review.TFrame'); actions.pack(fill='x')
+        ttk.Button(actions,text='Generate preview',style='Subtle.TButton',command=self.generate_preview).pack(side='left',expand=True,fill='x',padx=(0,4))
+        ttk.Button(actions,text='Create Gmail Draft',style='Outline.TButton',command=lambda:self.gmail_action(send=False)).pack(side='left',expand=True,fill='x',padx=4)
+        ttk.Button(actions,text='Review & Send',style='Action.TButton',command=lambda:self.gmail_action(send=True)).pack(side='left',expand=True,fill='x',padx=(4,0))
+        ttk.Label(compose,text='Safety: no email is sent until you review the recipient, message and attachment, then confirm.',style='Hint.TLabel',wraplength=420).pack(anchor='w',pady=(8,0))
+
+        ttk.Label(conversation,text='Emails sent from this app only',style='Section.TLabel').pack(anchor='w')
         ttk.Label(conversation,text='The selected system thread checks for new replies every minute; Refresh updates it now. Other inbox email is never shown here.',style='Hint.TLabel',wraplength=420).pack(anchor='w',pady=(2,8))
         self.conversation_status=ttk.Label(conversation,text='Select a company that was emailed through this app.',style='Hint.TLabel')
         self.conversation_status.pack(anchor='w',pady=(0,6))
-        self.conversation_text=tk.Text(conversation,height=17,wrap='word',font=('Segoe UI',9),state='disabled')
+        self.conversation_text=tk.Text(conversation,height=17,wrap='word',font=('Segoe UI',9),state='disabled',bg='#F7FAFC',fg='#243B53',relief='flat',highlightthickness=1,highlightbackground='#D9E2EC',padx=9,pady=8)
         self.conversation_text.pack(fill='both',expand=True)
-        conv_actions=ttk.Frame(conversation); conv_actions.pack(fill='x',pady=(8,3))
-        ttk.Button(conv_actions,text='Refresh conversation',command=self.refresh_conversation).pack(side='left')
-        ttk.Button(conv_actions,text='Send reply below',command=self.send_reply).pack(side='right')
-        ttk.Label(conversation,text='Reply message',font=('Segoe UI',10,'bold')).pack(anchor='w',pady=(6,2))
-        self.reply_text=tk.Text(conversation,height=5,wrap='word',font=('Segoe UI',9))
+        conv_actions=ttk.Frame(conversation,style='Review.TFrame'); conv_actions.pack(fill='x',pady=(8,3))
+        ttk.Button(conv_actions,text='Refresh conversation',style='Subtle.TButton',command=self.refresh_conversation).pack(side='left')
+        ttk.Button(conv_actions,text='Send reply below',style='Primary.TButton',command=self.send_reply).pack(side='right')
+        ttk.Label(conversation,text='Reply message',style='Section.TLabel').pack(anchor='w',pady=(8,3))
+        self.reply_text=tk.Text(conversation,height=5,wrap='word',font=('Segoe UI',9),bg='#FFFFFF',fg='#243B53',relief='flat',highlightthickness=1,highlightbackground='#B8C7D6',padx=9,pady=8)
         self.reply_text.pack(fill='x')
 
-    def _filter(self,parent,label,var,column,width,values=None):
-        ttk.Label(parent,text=label+':').grid(row=0,column=column*2,sticky='w',padx=(0,4))
+        self._build_workspace_page()
+
+    def _filter(self,parent,label,var,row,column,width,values=None):
+        ttk.Label(parent,text=label).grid(row=row,column=column*2,sticky='w',padx=(0,5),pady=2)
         combo=ttk.Combobox(parent,textvariable=var,state='readonly',width=width,values=values or [var.get()])
-        combo.grid(row=0,column=column*2+1,sticky='w',padx=(0,14))
+        combo.grid(row=row,column=column*2+1,sticky='ew',padx=(0,14),pady=2)
         combo.bind('<<ComboboxSelected>>',lambda e:self.refresh())
         return combo
+
+    def _adapt_main_layout(self,event):
+        """Put the detail panel below the list before either panel becomes unusable."""
+        orientation='horizontal' if event.width >= 1080 else 'vertical'
+        if orientation != self.main_orientation:
+            self.main_pane.configure(orient=orientation)
+            self.main_orientation=orientation
 
     def _scope_changed(self,event=None):
         self.refresh(); self._update_bulk_station_button()
@@ -375,7 +505,7 @@ class App(tk.Tk):
         sel=self.tree.selection()
         if not sel:return
         self.selected_id=int(sel[0]); con=db(); r=con.execute('SELECT * FROM companies WHERE id=?',(self.selected_id,)).fetchone(); con.close()
-        self.hr_var.set(r['hr_email'] or ''); self.email_verified_var.set(bool(r['email_verified'])); self.station_line_var.set(r['station_line'] or self._station_line_for(r['station']) or 'MRT Putrajaya Line'); self.station_var.set(r['station'] or 'Metro Prima'); self.walk_var.set('' if r['walk_minutes'] is None else str(r['walk_minutes'])); self.walk_distance_var.set((f"{r['walk_distance_meters']:,} m • " if r['walk_distance_meters'] is not None else '') + (f"{r['walk_minutes']} min walk" if r['walk_minutes'] is not None else 'Not calculated')); self.status_var.set(r['status'] or 'Not applied')
+        self.hr_var.set(r['hr_email'] or ''); self.email_verified_var.set(bool(r['email_verified'])); self.station_line_var.set(r['station_line'] or self._station_line_for(r['station']) or 'MRT Putrajaya Line'); self.station_var.set(r['station'] or 'Metro Prima'); self.walk_var.set('' if r['walk_minutes'] is None else str(r['walk_minutes'])); self.walk_distance_var.set((f"{r['walk_distance_meters']:,} m • " if r['walk_distance_meters'] is not None else '') + (f"{r['walk_minutes']} min walk" if r['walk_minutes'] is not None else 'Not calculated') + (f" • saved {r['station_calculated_at']}" if r['station_calculated_at'] else '')); self.status_var.set(r['status'] or 'Not applied')
         source=r['email_source'] or ('Verified manually' if r['email_verified'] else 'No imported source')
         self.email_source_label.config(text='Source: '+source,style='Verified.TLabel' if r['email_verified'] else 'Warning.TLabel')
         self.detail.delete('1.0','end')
@@ -400,8 +530,10 @@ class App(tk.Tk):
         if mins is not None:
             verified=messagebox.askyesno('Confirm route check',f'Have you personally verified the final walking route from {station} ({station_line}) to the actual office entrance is {mins} minutes or less?\n\nOnly click Yes if the Google Maps result and office entrance are correct.')
         source=current['email_source'] if current and email == (current['hr_email'] or '') and current['email_source'] else ('Manually entered' if email else '')
-        con=db(); con.execute('UPDATE companies SET hr_email=?,email_source=?,email_verified=?,email_verified_at=?,station=?,station_line=?,walk_minutes=?,route_verified=?,status=? WHERE id=?',
-                              (email, source, 1 if email_verified else 0, datetime.now().isoformat(timespec='minutes') if email_verified else '', station,station_line,mins,1 if verified else 0,self.status_var.get(),self.selected_id)); con.commit(); con.close(); self.refresh()
+        con=db(); con.execute('''UPDATE companies SET hr_email=?,email_source=?,email_verified=?,email_verified_at=?,station=?,station_line=?,walk_minutes=?,route_verified=?,status=?,
+                                station_calculation_source=CASE WHEN ? THEN 'manual_verified' ELSE station_calculation_source END,
+                                station_calculated_at=CASE WHEN ? THEN ? ELSE station_calculated_at END WHERE id=?''',
+                              (email, source, 1 if email_verified else 0, datetime.now().isoformat(timespec='minutes') if email_verified else '', station,station_line,mins,1 if verified else 0,self.status_var.get(),1 if verified else 0,1 if verified else 0,datetime.now().isoformat(timespec='minutes'),self.selected_id)); con.commit(); con.close(); self.refresh()
         messagebox.showinfo('Saved','Company details saved. Contact email: '+('Verified' if email_verified else 'Needs verification')+'\nRoute eligibility: '+('Verified' if verified else 'Not verified'))
 
     def current_company(self):
@@ -411,17 +543,6 @@ class App(tk.Tk):
     @staticmethod
     def _station_line_for(station):
         return next((line for line, stations in TRANSIT_LINES.items() if station in stations), '')
-
-    def calculate_nearest_station(self):
-        company=self.current_company()
-        if not company: messagebox.showwarning('Select company','Select a company first.'); return
-        selected_line=self.station_line_var.get()
-        lines=TRANSIT_LINES if selected_line == 'All MRT / LRT / Monorail' else {selected_line: TRANSIT_LINES.get(selected_line, [])}
-        candidates=[(line,station) for line, stations in lines.items() for station in stations]
-        if not candidates: messagebox.showerror('No stations','Choose a valid MRT/LRT line first.'); return
-        address=', '.join(x for x in [company['name'],company['address'],company['postcode'],company['city'],company['state'],'Malaysia'] if x)
-        self.walk_distance_var.set('Looking up free map coordinates…')
-        threading.Thread(target=self._nearest_station_worker,args=(company['id'],address,candidates),daemon=True).start()
 
     @staticmethod
     def _straight_distance_meters(a_lat,a_lon,b_lat,b_lon):
@@ -461,31 +582,34 @@ class App(tk.Tk):
     def _save_nearest_station(self,con,company,points):
         if company['latitude'] is None or company['longitude'] is None or not points: return False
         distance,line,station=min(((self._straight_distance_meters(company['latitude'],company['longitude'],lat,lon),line,station) for line,station,lat,lon in points),key=lambda row:row[0])
-        con.execute('''UPDATE companies SET station=?,station_line=?,walk_distance_meters=?,walk_minutes=NULL,route_verified=0 WHERE id=?''',(station,line,distance,company['id']))
+        con.execute('''UPDATE companies SET station=?,station_line=?,walk_distance_meters=?,walk_minutes=NULL,route_verified=0,
+                       station_calculation_source='geoapify_auto',station_calculated_at=? WHERE id=?''',(station,line,distance,datetime.now().isoformat(timespec='minutes'),company['id']))
         return True
 
-    def calculate_all_nearest_stations(self):
+    def calculate_all_nearest_stations(self,force=False):
         if self._bulk_calculating: return
         api_key=self.settings.get('geoapify_api_key','').strip()
         if not api_key:
-            messagebox.showerror('Free Geoapify key required','Create a free key at https://myprojects.geoapify.com, paste it in Profile & Gmail Setup, save, then run automatic calculation.')
+            messagebox.showerror('Free Geoapify key required','Create a free key at https://myprojects.geoapify.com, paste it in My workspace, save, then run automatic calculation.')
             return
         industry=self.industry_filter.get(); region=self.region_filter.get()
         scope_parts=[]
         if industry != 'All industries': scope_parts.append(f'Industry: {industry}')
         if region != 'All regions': scope_parts.append(f'Region: {region}')
         scope=' • '.join(scope_parts) if scope_parts else 'All companies'
-        if not messagebox.askyesno('Calculate nearest stations',f'This will automatically geocode companies in this scope:\n{scope}\n\nIt only calculates companies that do not yet have a nearest station. It uses Geoapify’s free daily quota, caches every result locally, and may take several minutes the first time. Continue?'): return
-        self._bulk_calculating=True; self.bulk_station_button.state(['disabled']); self.stats_label.config(text='Preparing automatic nearest-station calculation…')
-        threading.Thread(target=self._bulk_station_worker,args=(api_key,industry,region,scope),daemon=True).start()
+        action='recalculate and overwrite previous automatic station results' if force else 'calculate only companies without a saved nearest station'
+        if not messagebox.askyesno('Calculate nearest stations',f'This will {action} in this scope:\n{scope}\n\nManually verified routes are protected. Results are saved locally and may take several minutes the first time. Continue?'): return
+        self._bulk_calculating=True; self.bulk_station_button.state(['disabled']); self.recalculate_station_button.state(['disabled']); self.stats_label.config(text='Preparing automatic nearest-station calculation…')
+        threading.Thread(target=self._bulk_station_worker,args=(api_key,industry,region,scope,force),daemon=True).start()
 
-    def _bulk_station_worker(self,api_key,industry,region,scope):
+    def _bulk_station_worker(self,api_key,industry,region,scope,force):
         try:
             con=db()
             def progress(text): self.after(0,lambda value=text:self.stats_label.config(text=value))
             points=self._station_points(con,api_key,progress)
             if not points: raise RuntimeError('No KL station coordinates were found. Check the API key and internet connection.')
-            clauses=["COALESCE(route_verified,0)=0","(latitude IS NULL OR longitude IS NULL OR COALESCE(station_line,'')='')"]
+            clauses=["COALESCE(route_verified,0)=0"]
+            if not force: clauses.append("(latitude IS NULL OR longitude IS NULL OR COALESCE(station_line,'')='')")
             params=[]
             if industry != 'All industries':
                 clauses.append("COALESCE(industry,'')=?"); params.append(industry)
@@ -510,26 +634,27 @@ class App(tk.Tk):
                 if self._save_nearest_station(con,company,points): located+=1
                 completed+=1
                 if completed % 5 == 0 or completed == total:
-                    con.commit(); progress(f'Auto-calculating {scope}: {completed:,}/{total:,} companies • {located:,} completed • {failed:,} address not found')
+                    verb='Recalculating' if force else 'Auto-calculating'
+                    con.commit(); progress(f'{verb} {scope}: {completed:,}/{total:,} companies • {located:,} completed • {failed:,} address not found')
             con.commit(); con.close()
-            self.after(0,lambda:self._bulk_station_done(located,failed,None,scope))
+            self.after(0,lambda:self._bulk_station_done(located,failed,None,scope,force))
         except HTTPError as e:
             detail=e.read().decode('utf-8','replace')
-            self.after(0,lambda err=f'Geoapify error {e.code}: {detail}':self._bulk_station_done(0,0,err,scope))
+            self.after(0,lambda err=f'Geoapify error {e.code}: {detail}':self._bulk_station_done(0,0,err,scope,force))
         except Exception as e:
-            self.after(0,lambda err=str(e):self._bulk_station_done(0,0,err,scope))
+            self.after(0,lambda err=str(e):self._bulk_station_done(0,0,err,scope,force))
 
-    def _bulk_station_done(self,located,failed,error,scope):
-        self._bulk_calculating=False; self.bulk_station_button.state(['!disabled'])
+    def _bulk_station_done(self,located,failed,error,scope,force):
+        self._bulk_calculating=False; self.bulk_station_button.state(['!disabled']); self.recalculate_station_button.state(['!disabled'])
         if error: messagebox.showerror('Automatic calculation stopped',error)
         else:
-            self.refresh(); self._update_bulk_station_button(); messagebox.showinfo('Automatic calculation complete',f'Scope: {scope}\nNearest MRT/LRT/Monorail station calculated: {located:,}\nAddress not located: {failed:,}\n\nUse Transit line plus distance filters to view nearby companies. Distance is straight-line; confirm final walking time in Google Maps before applying.')
+            self.refresh(); self._update_bulk_station_button(); messagebox.showinfo('Automatic calculation complete',f'Scope: {scope}\nNearest MRT/LRT/Monorail station {"recalculated" if force else "calculated"}: {located:,}\nAddress not located: {failed:,}\n\nResults were saved locally. Use Transit line plus distance filters to view nearby companies. Distance is straight-line; confirm final walking time in Google Maps before applying.')
 
     def calculate_nearest_station(self):
         company=self.current_company()
         if not company: messagebox.showwarning('Select company','Select a company first.'); return
         api_key=self.settings.get('geoapify_api_key','').strip()
-        if not api_key: messagebox.showerror('Free Geoapify key required','Add the free Geoapify key in Profile & Gmail Setup first.'); return
+        if not api_key: messagebox.showerror('Free Geoapify key required','Add the free Geoapify key in My workspace first.'); return
         self.walk_distance_var.set('Calculating nearest station…')
         threading.Thread(target=self._single_station_worker,args=(company['id'],api_key),daemon=True).start()
 
@@ -579,23 +704,71 @@ class App(tk.Tk):
         subject,body=self.make_email(r)
         self.preview.delete('1.0','end'); self.preview.insert('1.0',f'To: {r["hr_email"] or "[Add verified HR email]"}\nSubject: {subject}\n\n{body}')
 
-    def profile_dialog(self):
-        win=tk.Toplevel(self); win.title('Profile & Gmail Setup'); win.geometry('680x630'); win.transient(self); win.grab_set()
-        vars={k:tk.StringVar(value=str(self.settings.get(k,''))) for k in ['student_name','course','internship_period','phone','sender_email','resume_path','credentials_path','geoapify_api_key']}
-        frm=ttk.Frame(win,padding=14); frm.pack(fill='both',expand=True)
-        labels={'student_name':'Your full name','course':'Course / programme','internship_period':'Internship period (e.g. Jan–Apr 2027)','phone':'Phone number','sender_email':'Your Gmail address','resume_path':'Resume PDF path','credentials_path':'Google OAuth credentials.json path','geoapify_api_key':'Geoapify free geocoding API key'}
-        for i,(k,label) in enumerate(labels.items()):
-            ttk.Label(frm,text=label).grid(row=i,column=0,sticky='w',pady=6)
-            ttk.Entry(frm,textvariable=vars[k],width=58,show='•' if k=='geoapify_api_key' else '').grid(row=i,column=1,sticky='ew',pady=6)
-            if k in ['resume_path','credentials_path']:
-                cmd=lambda key=k: self._browse_into(vars[key], 'PDF files' if key=='resume_path' else 'JSON files', '*.pdf' if key=='resume_path' else '*.json')
-                ttk.Button(frm,text='Browse',command=cmd).grid(row=i,column=2,padx=4)
-        ttk.Label(frm,text='Automatic nearest-station calculation uses Geoapify’s free plan (3,000 requests/day, no credit card) and caches coordinates locally. Create a free key at myprojects.geoapify.com, then paste it above. No Google Maps key is required.',wraplength=620,style='Hint.TLabel').grid(row=len(labels),column=0,columnspan=3,sticky='w',pady=10)
-        def save():
-            for k,v in vars.items(): self.settings[k]=v.get().strip()
-            save_settings(self.settings); win.destroy(); messagebox.showinfo('Saved','Profile settings saved on this computer.')
-        ttk.Button(frm,text='Save settings',command=save).grid(row=len(labels)+1,column=1,sticky='e',pady=12)
-        frm.columnconfigure(1,weight=1)
+    def _build_workspace_page(self):
+        settings_panel=ScrollablePanel(self.settings_page,style='App.TFrame',background='#F7F8FA'); settings_panel.pack(fill='both',expand=True)
+        page=settings_panel.body; page.configure(padding=(24,20,24,24))
+        top=ttk.Frame(page,style='App.TFrame'); top.pack(fill='x',pady=(0,16))
+        ttk.Label(top,text='My workspace',style='PageTitle.TLabel').pack(anchor='w')
+        self.workspace_intro=ttk.Label(top,text='Your profile, files and service keys stay on this Windows account.',style='PageSubtitle.TLabel',wraplength=900)
+        self.workspace_intro.pack(anchor='w',pady=(4,0))
+
+        card=ttk.Frame(page,style='Surface.TFrame',padding=18); card.pack(fill='both',expand=True)
+        self.workspace_status=ttk.Label(card,text='Complete the details below, then save your workspace.',style='Hint.TLabel')
+        self.workspace_status.pack(anchor='w',pady=(0,14))
+        columns=ttk.Frame(card,style='Surface.TFrame'); columns.pack(fill='both',expand=True)
+        personal=ttk.Labelframe(columns,text='About you',padding=(14,10))
+        services=ttk.Labelframe(columns,text='Files & connections',padding=(14,10))
+        personal.grid(row=0,column=0,sticky='nsew',padx=(0,8)); services.grid(row=0,column=1,sticky='nsew',padx=(8,0))
+        columns.columnconfigure(0,weight=1); columns.columnconfigure(1,weight=1); columns.rowconfigure(0,weight=1)
+
+        keys=['student_name','course','internship_period','phone','sender_email','resume_path','credentials_path','geoapify_api_key']
+        self.profile_vars={k:tk.StringVar(value=str(self.settings.get(k,''))) for k in keys}
+        self._settings_field(personal,'Your full name','student_name',0)
+        self._settings_field(personal,'Course / programme','course',1)
+        self._settings_field(personal,'Internship period','internship_period',2)
+        self._settings_field(personal,'Phone number','phone',3)
+        ttk.Label(personal,text='These details are used in the email preview. You can edit them any time. Use a real name and contact number before sending.',style='Hint.TLabel',wraplength=400).grid(row=4,column=0,columnspan=2,sticky='w',pady=(12,0))
+
+        self._settings_field(services,'Your Gmail address','sender_email',0)
+        self._settings_field(services,'Resume PDF','resume_path',1,browse=('PDF files','*.pdf'))
+        self._settings_field(services,'Google OAuth credentials.json','credentials_path',2,browse=('JSON files','*.json'))
+        self._settings_field(services,'Geoapify free API key','geoapify_api_key',3,secret=True)
+        ttk.Label(services,text='Nearest-station calculation uses Geoapify’s free plan and saves results locally. No Google Maps API key is required.',style='Hint.TLabel',wraplength=400).grid(row=4,column=0,columnspan=2,sticky='w',pady=(12,0))
+        personal.columnconfigure(1,weight=1); services.columnconfigure(1,weight=1)
+
+        actions=ttk.Frame(card,style='Surface.TFrame'); actions.pack(fill='x',pady=(18,0))
+        self.workspace_save_button=ttk.Button(actions,text='Save workspace',style='Primary.TButton',command=self.save_workspace_settings)
+        self.workspace_save_button.pack(side='right')
+        ttk.Button(actions,text='Back to applications',style='Subtle.TButton',command=self.show_dashboard).pack(side='right',padx=(0,8))
+
+    def _settings_field(self,parent,label,key,row,browse=None,secret=False):
+        ttk.Label(parent,text=label).grid(row=row,column=0,sticky='w',pady=6)
+        entry=ttk.Entry(parent,textvariable=self.profile_vars[key],show='•' if secret else '')
+        entry.grid(row=row,column=1,sticky='ew',pady=6)
+        if browse:
+            ttk.Button(parent,text='Browse',style='Subtle.TButton',command=lambda: self._browse_into(self.profile_vars[key],browse[0],browse[1])).grid(row=row,column=2,padx=(6,0),pady=6)
+
+    def show_workspace_settings(self,onboarding=False):
+        self.dashboard_page.pack_forget(); self.settings_page.pack(fill='both',expand=True)
+        if onboarding:
+            self.workspace_intro.config(text='Set up this private workspace once. Your information, keys and application records remain on this Windows account.')
+            self.workspace_status.config(text='Start with the details you want in your application email. You can return here later from My workspace.')
+            self.workspace_save_button.config(text='Save and open applications')
+        else:
+            self.workspace_intro.config(text='Update your personal details, documents or connection settings whenever needed.')
+            self.workspace_status.config(text='Changes are saved only on this Windows account.')
+            self.workspace_save_button.config(text='Save workspace')
+
+    def show_dashboard(self):
+        self.settings_page.pack_forget(); self.dashboard_page.pack(fill='both',expand=True)
+
+    def save_workspace_settings(self):
+        for key,var in self.profile_vars.items(): self.settings[key]=var.get().strip()
+        was_ready=bool(self.settings.get('profile_ready'))
+        self.settings['profile_ready']=True; save_settings(self.settings)
+        self.workspace_status.config(text='Workspace saved on this Windows account.')
+        if not was_ready:
+            self.show_dashboard()
 
     def _browse_into(self,var,label,pattern):
         p=filedialog.askopenfilename(filetypes=[(label,pattern)])
@@ -620,7 +793,7 @@ class App(tk.Tk):
         if not messagebox.askyesno('Review before Gmail action',confirm_text+'\nProceed to '+('SEND this email' if send else 'create a Gmail Draft')+'?'):
             return
         if not self.settings.get('credentials_path') or not Path(self.settings['credentials_path']).is_file():
-            messagebox.showerror('Gmail not configured','Select your Google OAuth credentials.json in Profile & Gmail Setup.'); return
+            messagebox.showerror('Gmail not configured','Select your Google OAuth credentials.json in My workspace.'); return
         threading.Thread(target=self._gmail_worker,args=(r['id'],r['hr_email'],subject,body,resume,send),daemon=True).start()
 
     def _gmail_worker(self,cid,to,subject,body,resume,send):
@@ -658,7 +831,7 @@ class App(tk.Tk):
         from googleapiclient.discovery import build
         # A separate token forces one clear re-consent when upgrading from the
         # earlier compose-only version of the application.
-        token_path=APP_DIR/'token_messages.json'; scopes=['https://www.googleapis.com/auth/gmail.modify']
+        token_path=TOKEN_PATH; scopes=['https://www.googleapis.com/auth/gmail.modify']
         creds=None
         if token_path.exists():
             creds=Credentials.from_authorized_user_file(str(token_path),scopes)
@@ -729,7 +902,7 @@ class App(tk.Tk):
         con=db(); thread=con.execute('SELECT gmail_thread_id FROM system_threads WHERE company_id=?',(self.selected_id,)).fetchone(); con.close()
         if not thread: messagebox.showinfo('No tracked conversation','Send the first email through this app. Only threads created here are available.'); return
         if not self.settings.get('credentials_path') or not Path(self.settings['credentials_path']).is_file():
-            messagebox.showerror('Gmail not configured','Select your Google OAuth credentials.json in Profile & Gmail Setup.'); return
+            messagebox.showerror('Gmail not configured','Select your Google OAuth credentials.json in My workspace.'); return
         if self._conversation_syncing: return
         self._conversation_syncing=True; self.conversation_status.config(text='Refreshing this system email thread…')
         threading.Thread(target=self._conversation_refresh_worker,args=(self.selected_id,thread['gmail_thread_id'],False),daemon=True).start()
@@ -794,7 +967,7 @@ if __name__=='__main__':
     app=App()
     if not db().execute('SELECT COUNT(*) FROM companies').fetchone()[0]:
         # Offer the original workbook if it sits beside the app.
-        default=APP_DIR/'CareeReX_IT_highlight.xlsx'
+        default=RESOURCE_DIR/'CareeReX_IT_highlight.xlsx'
         if default.exists():
             try: import_excel(default)
             except Exception: pass

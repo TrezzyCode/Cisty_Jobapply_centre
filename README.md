@@ -1,4 +1,6 @@
-# IT Internship Auto Apply（Windows 桌面版）
+# Internship Workspace（Windows 桌面版）
+
+当前主界面已经迁移到 PySide6。项目位于 [`InternshipAutoApply/`](InternshipAutoApply/)；完整架构、隐私边界与发布流程见 [`HANDOFF.md`](InternshipAutoApply/HANDOFF.md)。
 
 ## 已实现
 - 导入 CareeReX `.xlsx`，按 `Target Faculty` 中真实的 `FOCS` token 筛选公司。
@@ -17,7 +19,7 @@
 2. 安装 Python 3.10 或更新版本，并勾选 Add Python to PATH。
 3. 双击 `install.bat` 安装依赖。
 4. 把原始 `CareeReX_IT_highlight.xlsx` 放在本文件夹，或启动后点 Import Excel。
-5. 双击 `run.bat` 启动。
+5. 双击 `run_glass_ui.bat` 启动当前界面；`run.bat` 只作为旧 Tkinter 界面的回退入口。
 
 ## 第一次使用
 1. 点 `Profile & Gmail Setup`，填写姓名、课程、实习期间、电话、Gmail。
