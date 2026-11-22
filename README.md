@@ -12,7 +12,7 @@
 - Google Maps 公共交通路线链接。
 - 英文申请邮件预览、Gmail Draft 创建、审核确认后发送、Resume PDF 附件。
 - 每间公司都有「System email conversation」页：只显示本系统成功发送后建立的 Gmail 对话线程，选中公司后每分钟检查最新回复（也可立即手动刷新），并可从该线程发送跟进回复。
-- 同一个 Gmail 可在学校、家里或新电脑之间同步 Cisty 投递记录。软件只查询 `Cisty/Applications` 专用标签；草稿只检查 Gmail Draft 列表中的 Cisty 私有标记，恢复 Draft ready、Applied、Replied 和对应系统对话，不扫描收件箱或其他已发送邮件。
+- 同一个 Gmail 可在学校、家里或新电脑之间同步 Cisty 已投记录。用户点击 `Sync Gmail` 后，软件只查询 `Cisty/Applications` 专用标签，恢复 Applied、Replied 和对应系统对话；不会扫描收件箱、其他已发送邮件或 Gmail 草稿。
 - 不会猜测 HR Email；没有核实 HR Email、没有核实路线、没有 PDF Resume 时禁止发送。
 
 ## 运行要求

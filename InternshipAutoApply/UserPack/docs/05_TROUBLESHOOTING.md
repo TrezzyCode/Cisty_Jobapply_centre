@@ -32,6 +32,15 @@
 4. 若显示 `Waiting for company-list import`，代表 Gmail 记录安全存在，但 B 电脑的公司列表尚无可匹配公司；导入完整 Excel 后再同步。
 5. 若提示 Gmail 账号不一致，请删除本机 `%LOCALAPPDATA%\IT Internship Auto Apply\token_messages.json`，重新操作并在 Google 官方页面选择正确账号。删除 token 只会要求重新授权，不会删除 Gmail 邮件或本地公司资料。
 
+## 打开软件后停在 Syncing 或未响应
+
+新版不会在启动时自动同步，也不会扫描 Gmail Draft。请先在任务管理器结束仍在运行的旧版 `pythonw.exe` / `Cisty.exe`，再通过新版启动脚本打开。
+
+- Gmail 同步只在点击 **Sync Gmail** 后运行。
+- 同步按钮会显示进度；再次点击可取消。
+- 每个 Gmail 网络请求最多等待 20 秒。
+- Gmail 草稿中的 `Draft ready` 状态不会跨电脑同步；Applied、Replied 和 Cisty 系统对话会同步。
+
 ## Cisty 显示未响应，并出现黑色 cmd 窗口
 
 旧启动脚本会让 Cisty 与 cmd 共用控制台。若控制台标题显示“选择 / Select”，Windows QuickEdit 会暂停 Python，Cisty 因此显示未响应。新版 `run_glass_ui.bat` 已改用 `pythonw.exe`，不会保留黑色控制台窗口。
