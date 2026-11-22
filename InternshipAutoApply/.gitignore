@@ -19,3 +19,5 @@ client_secret*.json
 *.docx
 profile_avatar.*
 user_data/
+UserPack/InternshipWorkspace.exe
+UserPack/*.zip

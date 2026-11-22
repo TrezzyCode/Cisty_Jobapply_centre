@@ -1,0 +1,65 @@
+# 常见问题
+
+## Windows SmartScreen 阻止运行
+
+自行打包、没有数字签名的 EXE 可能触发 SmartScreen。只有在确认 UserPack 来自可信发布者且文件未被篡改时，才选择 **More info → Run anyway**。
+
+## install.bat 显示找不到 EXE
+
+确认 `InternshipWorkspace.exe` 与 `install.bat` 位于同一个 UserPack 根目录，且文件名没有被浏览器改成 `(1)` 或其他名称。
+
+## Gmail 显示 Access denied / Error 403
+
+- 确认 Gmail API 已启用。
+- 确认 OAuth Client 类型为 Desktop app。
+- External + Testing 模式下，确认自己的 Gmail 已加入 Test users。
+- 确认软件中的 Gmail 与浏览器授权账号一致。
+
+## Gmail token expired / revoked
+
+1. 关闭软件。
+2. 打开 `%LOCALAPPDATA%\IT Internship Auto Apply`。
+3. 先备份，再将 `token_messages.json` 改名，例如 `token_messages.old.json`。
+4. 重新打开软件并执行 Gmail 操作，浏览器会要求再次授权。
+
+不要删除数据库或 settings 来解决 Gmail 授权问题。
+
+## Geoapify 401 / 403
+
+API key 不正确、已停用或复制时带有空格。到 Geoapify MyProjects 重新复制 key，并在 My Workspace 保存。
+
+## Geoapify 429
+
+当天免费额度已用完。等待额度重置后再继续；不要不断点击 Recalculate stations。
+
+## Company address could not be located
+
+地址可能过短、缺少 postcode/city/state，或包含 Excel 中的异常字符。补全公司地址后再重新计算。无法确认的公司应保留为未计算，而不是猜测坐标。
+
+## 选择 Transit line 后没有公司
+
+先清除 Distance 筛选，确认目标公司的站点已经计算。尚未计算的公司不会自动属于某条线路。然后针对当前 Industry / Region 运行 Calculate stations。
+
+## 邮件无法发送
+
+检查：
+
+- 招聘邮箱是否存在并已人工核实
+- Resume 是否为可访问的 PDF
+- Gmail OAuth JSON 是否仍在原路径
+- Gmail 授权是否成功
+- 网络连接是否正常
+
+## 界面显示不完整
+
+- 将窗口最大化。
+- Windows 显示缩放建议先测试 100%、125% 或 150%。
+- 使用最新版软件；不要混用旧的 `run.bat` Tkinter 界面。
+
+## 想重置软件但保留恢复机会
+
+1. 关闭软件。
+2. 将 `%LOCALAPPDATA%\IT Internship Auto Apply` 重命名为带日期的备份文件夹。
+3. 重新启动软件，它会建立新的空白数据目录。
+
+确认新环境正常且旧数据确实不需要后，再决定是否删除备份。

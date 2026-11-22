@@ -22,6 +22,7 @@ The current primary interface is the PySide6 application in `qt_main.py`. The ol
 - `CareeReX_IT_highlight.xlsx` — starter company workbook bundled as application data.
 - `requirements.txt` — runtime dependencies.
 - `build_exe.bat` — reproducible one-file Windows EXE build script. It is intentionally not run during active UI development.
+- `UserPack/` — distribution-ready folder containing installation/portable scripts and end-user setup, privacy, usage, and troubleshooting documentation. Add the approved `InternshipWorkspace.exe` here only after building.
 - `.gitignore` — privacy boundary for personal data and build artifacts.
 
 ## Local data and privacy boundary
@@ -67,8 +68,9 @@ Do not package during normal iteration. When a release candidate is approved:
 2. Test Excel import, a filtered station calculation, profile save/avatar, Gmail draft, and conversation refresh.
 3. Confirm no personal data exists in the Git staged-file list.
 4. Run `build_exe.bat`.
-5. Test `dist\InternshipWorkspace.exe` on a clean Windows account.
-6. Share only the EXE; never share `%LOCALAPPDATA%\IT Internship Auto Apply`.
+5. Copy `dist\InternshipWorkspace.exe` to `UserPack\InternshipWorkspace.exe`.
+6. Run `UserPack\verify_package.bat` and test `install.bat`, shortcuts, portable launch, and uninstall on a clean Windows account.
+7. Zip the complete UserPack folder. Never include or share `%LOCALAPPDATA%\IT Internship Auto Apply`.
 
 ## Git workflow
 
