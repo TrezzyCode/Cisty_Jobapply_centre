@@ -1496,6 +1496,7 @@ class MainWindow(QMainWindow):
         self._conversation_syncing = False
         self._gmail_syncing = False
         self._gmail_sync_silent = False
+        self._gmail_sync_started_at = 0.0
         self._gmail_sync_cancel = threading.Event()
         self._filter_widgets = []
         self._build_ui()
@@ -1664,6 +1665,9 @@ class MainWindow(QMainWindow):
         self.gmail_sync_button = QPushButton('Sync Gmail')
         self.gmail_sync_button.setToolTip('Restore Cisty applications and conversations from this Gmail account')
         self.gmail_sync_button.clicked.connect(self.sync_gmail_account)
+        self.gmail_sync_status = QLabel('')
+        self.gmail_sync_status.setObjectName('muted')
+        self.gmail_sync_status.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         resume = QPushButton('Select resume PDF')
         resume.clicked.connect(self.choose_resume)
         self.bulk_button = QPushButton('Calculate stations')
@@ -1672,7 +1676,7 @@ class MainWindow(QMainWindow):
         self.recalculate_button.clicked.connect(lambda: self.calculate_all_nearest_stations(True))
         for button in (refresh, self.gmail_sync_button, resume, self.bulk_button, self.recalculate_button):
             tools.addWidget(button)
-        tools.addStretch()
+        tools.addWidget(self.gmail_sync_status, 1)
         self.filter_grid.addLayout(tools, 3, 0, 1, 5)
         return frame
 
@@ -2507,6 +2511,7 @@ class MainWindow(QMainWindow):
                 self._gmail_sync_cancel.set()
                 self.gmail_sync_button.setText('Stopping…')
                 self.gmail_sync_button.setEnabled(False)
+                self.gmail_sync_status.setText('Stopping after the current Gmail request…')
             return
         credentials = self.settings.get('credentials_path', '')
         if not credentials or not Path(credentials).is_file():
@@ -2515,13 +2520,17 @@ class MainWindow(QMainWindow):
             return
         self._gmail_syncing = True
         self._gmail_sync_silent = bool(silent)
+        self._gmail_sync_started_at = time.monotonic()
         self._gmail_sync_cancel.clear()
         self.gmail_sync_button.setEnabled(True)
         self.gmail_sync_button.setText('Cancel sync')
+        self.gmail_sync_status.setText('Connecting to Gmail…')
+        self.gmail_sync_status.setToolTip('')
         self._run_task('gmail_sync', self._gmail_sync_worker, bool(silent))
 
     def _gmail_sync_worker(self, silent):
         service = self._gmail_service()
+        self.task_progress.emit('gmail_sync', 'Connected • checking Cisty mail')
         application_label = self._gmail_label(service, CISTY_APPLICATION_LABEL)
 
         # One-time migration on the computer that originally sent the mail:
@@ -2557,6 +2566,8 @@ class MainWindow(QMainWindow):
         restored = replied = unmatched = 0
         matched_companies = set()
         total = len(thread_ids)
+        if not total:
+            self.task_progress.emit('gmail_sync', 'No Cisty conversations found')
         for position, thread_id in enumerate(thread_ids, start=1):
             if self._gmail_sync_cancel.is_set():
                 return {'silent':silent, 'cancelled':True}
@@ -2665,8 +2676,7 @@ class MainWindow(QMainWindow):
             self.gmail_sync_button.setText('Sync Gmail')
             self.gmail_sync_button.setToolTip('Restore Cisty applications and conversations from this Gmail account')
             if result.get('cancelled'):
-                if not result.get('silent'):
-                    QMessageBox.information(self, 'Gmail sync stopped', 'Sync was cancelled. Existing local data was kept.')
+                self.gmail_sync_status.setText('Sync stopped • existing local data was kept')
                 return
             if result.get('migration_account'):
                 self.settings['gmail_label_migration_account'] = result['migration_account']
@@ -2674,15 +2684,25 @@ class MainWindow(QMainWindow):
             self.refresh()
             if self.selected_id:
                 self.on_select()
-            if not result.get('silent'):
-                details = (
-                    f"Companies restored: {result['restored']:,}\n"
-                    f"Tracked conversations: {result['threads']:,}\n"
-                    f"Replies found: {result['replied']:,}"
-                )
-                if result['unmatched']:
-                    details += f"\n\nWaiting for company-list import: {result['unmatched']:,}"
-                QMessageBox.information(self, 'Gmail sync complete', details)
+            elapsed = (
+                max(0.0, time.monotonic() - self._gmail_sync_started_at)
+                if self._gmail_sync_started_at else 0.0
+            )
+            summary = (
+                f"Synced in {elapsed:.1f}s • {result['restored']:,} companies"
+                f" • {result['replied']:,} replies"
+            )
+            if result['unmatched']:
+                summary += f" • {result['unmatched']:,} waiting for import"
+            self.gmail_sync_status.setText(summary)
+            self.gmail_sync_status.setToolTip(
+                f"Tracked conversations: {result['threads']:,}. "
+                'Only messages sent through Cisty are included.'
+            )
+            self.gmail_sync_button.setToolTip(
+                f"{summary}. Tracked conversations: {result['threads']:,}. "
+                'Sync again to check for newer replies.'
+            )
         elif name == 'conversation':
             self._conversation_syncing=False; self.refresh(); self.load_conversation()
         elif name == 'reply':
@@ -2693,17 +2713,23 @@ class MainWindow(QMainWindow):
             self._bulk_running=False; self.bulk_button.setEnabled(True); self.recalculate_button.setEnabled(True)
         if name == 'conversation': self._conversation_syncing=False
         if name == 'gmail_sync':
+            was_silent = self._gmail_sync_silent
             self._gmail_syncing = False
+            self._gmail_sync_silent = False
             self.gmail_sync_button.setEnabled(True)
             self.gmail_sync_button.setText('Sync Gmail')
-            if self._gmail_sync_silent:
+            self.gmail_sync_status.setText('Sync failed • point to this message for details')
+            self.gmail_sync_status.setToolTip(error)
+            self.gmail_sync_button.setToolTip('Gmail sync failed: ' + error)
+            if was_silent:
                 self.gmail_sync_button.setToolTip('Automatic Gmail sync paused: ' + error)
-                return
+            return
         QMessageBox.critical(self,'Action failed',error)
 
     def _task_progress(self, name, message):
         if name == 'gmail_sync' and self._gmail_syncing and not self._gmail_sync_cancel.is_set():
-            self.gmail_sync_button.setText(message + ' • Cancel')
+            self.gmail_sync_button.setText('Cancel sync')
+            self.gmail_sync_status.setText(message)
 
 
 def _report_unhandled_exception(exception_type, exception, tb):
