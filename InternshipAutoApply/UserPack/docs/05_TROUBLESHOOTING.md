@@ -32,6 +32,15 @@
 4. 若显示 `Waiting for company-list import`，代表 Gmail 记录安全存在，但 B 电脑的公司列表尚无可匹配公司；导入完整 Excel 后再同步。
 5. 若提示 Gmail 账号不一致，请删除本机 `%LOCALAPPDATA%\IT Internship Auto Apply\token_messages.json`，重新操作并在 Google 官方页面选择正确账号。删除 token 只会要求重新授权，不会删除 Gmail 邮件或本地公司资料。
 
+## Cisty 显示未响应，并出现黑色 cmd 窗口
+
+旧启动脚本会让 Cisty 与 cmd 共用控制台。若控制台标题显示“选择 / Select”，Windows QuickEdit 会暂停 Python，Cisty 因此显示未响应。新版 `run_glass_ui.bat` 已改用 `pythonw.exe`，不会保留黑色控制台窗口。
+
+- 临时恢复旧版本：在黑色窗口按 `Esc` 或 `Enter` 退出选择状态。
+- 永久解决：使用新版启动脚本或之后打包的 `Cisty.exe`。
+- 不要连续双击多次；新版会拦截第二个实例。
+- 若新版仍发生真正错误，查看 `%LOCALAPPDATA%\IT Internship Auto Apply\cisty_error.log`，其中不应包含简历或 Gmail 密码。
+
 ## Geoapify 401 / 403
 
 API key 不正确、已停用或复制时带有空格。到 Geoapify MyProjects 重新复制 key，并在 My Workspace 保存。

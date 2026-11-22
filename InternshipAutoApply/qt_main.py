@@ -6,6 +6,7 @@ import json
 import base64
 import hashlib
 import threading
+import traceback
 import webbrowser
 import shutil
 from datetime import datetime
@@ -17,7 +18,8 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from PySide6.QtCore import (
-    Qt, Signal, Property, QTimer, QEasingCurve, QPropertyAnimation, QRectF, QPointF
+    Qt, Signal, Property, QTimer, QEasingCurve, QPropertyAnimation, QRectF, QPointF,
+    QLockFile
 )
 from PySide6.QtGui import (
     QColor, QPainter, QLinearGradient, QIcon, QPixmap, QPen, QPalette,
@@ -109,7 +111,7 @@ QLabel#title {{ font-size: 26px; font-weight: 600; }}
 QLabel#pageTitle {{ font-size: 23px; font-weight: 600; }}
 QLabel#sectionTitle {{ font-size: 18px; font-weight: 600; }}
 QLabel#muted {{ color: {COLORS['muted']}; }}
-QLabel#metric {{ font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; }}
+QLabel#metric {{ font-size: 21px; font-weight: 600; }}
 QLabel#success {{ color: {COLORS['green']}; font-weight: 600; }}
 QLabel#profileName {{ font-size: 18px; font-weight: 600; color: {COLORS['ink']}; }}
 QPushButton {{
@@ -1666,8 +1668,35 @@ class MainWindow(QMainWindow):
         QMessageBox.critical(self,'Action failed',error)
 
 
+def _report_unhandled_exception(exception_type, exception, tb):
+    """Persist GUI failures even when Cisty runs without a console window."""
+    if issubclass(exception_type, KeyboardInterrupt):
+        return
+    details = ''.join(traceback.format_exception(exception_type, exception, tb))
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        with (DATA_DIR / 'cisty_error.log').open('a', encoding='utf-8') as log:
+            log.write(f'\n[{datetime.now().isoformat(timespec="seconds")}]\n{details}')
+    except Exception:
+        pass
+    message = (
+        'Cisty encountered an unexpected error. Your local data was not deleted.\n\n'
+        f'Details were saved to:\n{DATA_DIR / "cisty_error.log"}\n\n'
+        f'{exception_type.__name__}: {exception}'
+    )
+    try:
+        if QApplication.instance() is not None:
+            QMessageBox.critical(None, 'Cisty error', message)
+        elif sys.platform == 'win32':
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, message, 'Cisty error', 0x10)
+    except Exception:
+        pass
+
+
 def main():
     application = QApplication(sys.argv)
+    sys.excepthook = _report_unhandled_exception
     application.setStyle('Fusion')
     palette = QPalette()
     palette.setColor(QPalette.Window, QColor('#F4EFE8'))
@@ -1684,6 +1713,19 @@ def main():
     application.setPalette(palette)
     application.setApplicationName('Cisty')
     application.setApplicationDisplayName('Cisty')
+
+    # Multiple source launchers or double-clicks must not write the same local
+    # SQLite database and OAuth token at the same time.
+    instance_lock = QLockFile(str(DATA_DIR / 'cisty.instance.lock'))
+    instance_lock.setStaleLockTime(30_000)
+    if not instance_lock.tryLock(100):
+        QMessageBox.information(
+            None,
+            'Cisty is already open',
+            'Cisty is already running. Open the existing window instead of starting another copy.',
+        )
+        return
+    application._cisty_instance_lock = instance_lock
     icon_path = RESOURCE_DIR / 'assets' / 'cisty_app_icon.svg'
     app_icon = QIcon(str(icon_path)) if icon_path.exists() else QIcon()
     if not app_icon.isNull():
@@ -1725,4 +1767,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception:
+        exception_type, exception, tb = sys.exc_info()
+        _report_unhandled_exception(exception_type, exception, tb)

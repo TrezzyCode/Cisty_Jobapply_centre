@@ -55,6 +55,7 @@ Never commit:
 - Supported transit networks include MRT Putrajaya, MRT Kajang, LRT Kelana Jaya, LRT Ampang, LRT Sri Petaling, and KL Monorail.
 - Gmail draft, reviewed send, tracked-thread refresh, and reply are implemented.
 - Gmail roaming sync is implemented for school/home/new-PC use: automatic startup sync plus a manual Sync Gmail action restores Cisty drafts, Applied/Replied state, timestamps, and tracked conversations. The connected account is checked against My Workspace before any sync.
+- `run_glass_ui.bat` resolves and launches `pythonw.exe` so a selected/QuickEdit console cannot suspend the GUI. `QLockFile` prevents concurrent instances, and unhandled GUI exceptions are appended to `%LOCALAPPDATA%\IT Internship Auto Apply\cisty_error.log`.
 - My Workspace is embedded in the main window.
 - The profile avatar can be selected or removed in My Workspace. The sidebar uses the same photo and falls back to the user's initials.
 - The approved Cisty squircle-C mark is used by the startup reveal, window icon, and EXE packaging. The electric outline plays once and respects Windows reduced-motion settings.
