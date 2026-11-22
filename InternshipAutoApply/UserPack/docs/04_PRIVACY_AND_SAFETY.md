@@ -29,7 +29,9 @@ Resume 与 OAuth JSON 通常保存在用户自己选择的位置，软件只保�
 
 ## Gmail 边界
 
-软件需要 Gmail `gmail.modify` 权限以建立草稿、发送、读取回复和继续同一 thread。但程序只通过本软件成功发送后保存的 thread ID 获取对话，不进行全邮箱扫描，也不显示其他私人邮件。
+软件需要 Gmail `gmail.modify` 权限以建立草稿、发送、读取回复和继续同一 thread。跨电脑同步只列出 `Cisty/Applications` 标签下的 thread，并只为本地已登记的旧 Cisty thread 补标签；由于 Gmail 不允许给 draft 添加自定义标签，程序会读取 Draft 列表的邮件头，但只接受带 `X-Cisty-App: Cisty` 私有标记的草稿。它不会扫描收件箱或其他已发送邮件，也不会显示私人草稿。
+
+Gmail 同步内容限于：Cisty 草稿、已投状态、回复状态、发送时间、thread ID 与该 Cisty 对话内容。个人资料、API key、OAuth JSON、token、简历、头像、公司 Excel 和交通站点计算不会上传到 Gmail。
 
 ## 邮件发送安全
 

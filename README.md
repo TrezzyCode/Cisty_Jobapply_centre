@@ -12,6 +12,7 @@
 - Google Maps 公共交通路线链接。
 - 英文申请邮件预览、Gmail Draft 创建、审核确认后发送、Resume PDF 附件。
 - 每间公司都有「System email conversation」页：只显示本系统成功发送后建立的 Gmail 对话线程，选中公司后每分钟检查最新回复（也可立即手动刷新），并可从该线程发送跟进回复。
+- 同一个 Gmail 可在学校、家里或新电脑之间同步 Cisty 投递记录。软件只查询 `Cisty/Applications` 专用标签；草稿只检查 Gmail Draft 列表中的 Cisty 私有标记，恢复 Draft ready、Applied、Replied 和对应系统对话，不扫描收件箱或其他已发送邮件。
 - 不会猜测 HR Email；没有核实 HR Email、没有核实路线、没有 PDF Resume 时禁止发送。
 
 ## 运行要求
@@ -37,12 +38,13 @@
 6. 如只想处理某个行业／地区，先在列表选择 `Industry` 和／或 `Region`，按钮会改为 `Auto-calculate selected industry stations`。点击后只会计算该筛选范围内尚未计算的公司；选择 All industries 时才会计算全部公司。首次约需数分钟，坐标会缓存到本机，之后不会重复消耗请求。
 7. 使用 `Transit line` 和距离筛选查看自动计算的附近公司。实际步行路线仍需点 `Open Google Maps route`，自行检查办公入口，填写最终步行分钟后按 Save 确认路线。
 7. 选择公司并生成邮件预览。先用 `Create Gmail Draft` 检查 Gmail 草稿；正式发送用 `Review & Send`，在弹窗核对收件人、正文和附件后确认。
+8. 换电脑时先导入相同的公司 Excel、在 My Workspace 登录同一个 Gmail，再点 `Sync Gmail`。旧版本用户应先在原电脑点一次 `Sync Gmail`，让软件只为原电脑已登记的 Cisty 对话补上同步标签。
 
 ## 重要说明
 - Excel 只提供公司资料，不含可靠的 HR 邮箱、实时实习空缺、MRT 站点或办公楼入口步行时间。因此这些信息不会自动编造；需要逐家公司核实。
 - 软件只会读取 Excel 中实际存在的邮箱栏并按公司名称配对；没有对应记录时不会猜测 HR 邮箱。它不会自动判断地图路线。
 - 自动最近站计算使用 Geoapify 免费方案进行地址转换，并使用 OpenStreetMap 数据；不需要 Google Maps API Key 或 Billing。Geoapify Free plan 不会自动收费，超过每日额度时会拒绝请求。直线距离不等同实际步行路线；实际步行时间必须由用户在地图中核实。
-- 「System email conversation」只保存本软件建立的 Gmail thread。未通过本软件发送的邮箱往来、其他私人邮件，以及未被本软件登记的 thread 都不会显示。
+- 「System email conversation」只保存本软件建立并带有 Cisty 专用标签的 Gmail thread。未通过本软件发送的邮箱往来及其他私人邮件不会被查询或显示。
 - 发送前会再次弹窗要求确认。应用不会在后台无审核群发。
 - 本地数据库 `internship_applications.db`、设置 `settings.json` 和 OAuth token（`token.json`／`token_messages.json`）请勿分享给他人；token 可在 Google Account 的第三方访问权限中撤销。
 - 建议先用自己的备用邮箱做一次 Draft 测试。

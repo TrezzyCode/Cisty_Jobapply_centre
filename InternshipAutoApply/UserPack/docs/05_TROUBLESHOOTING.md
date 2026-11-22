@@ -24,6 +24,14 @@
 
 不要删除数据库或 settings 来解决 Gmail 授权问题。
 
+## A 电脑显示 Applied，B 电脑显示 Not applied
+
+1. 在 A 电脑升级到含 Gmail Sync 的版本，并点一次 **Sync Gmail**。
+2. 在 B 电脑导入相同公司 Excel，确认 My Workspace 的 Gmail 地址相同。
+3. 在 B 电脑点 **Sync Gmail**。
+4. 若显示 `Waiting for company-list import`，代表 Gmail 记录安全存在，但 B 电脑的公司列表尚无可匹配公司；导入完整 Excel 后再同步。
+5. 若提示 Gmail 账号不一致，请删除本机 `%LOCALAPPDATA%\IT Internship Auto Apply\token_messages.json`，重新操作并在 Google 官方页面选择正确账号。删除 token 只会要求重新授权，不会删除 Gmail 邮件或本地公司资料。
+
 ## Geoapify 401 / 403
 
 API key 不正确、已停用或复制时带有空格。到 Geoapify MyProjects 重新复制 key，并在 My Workspace 保存。

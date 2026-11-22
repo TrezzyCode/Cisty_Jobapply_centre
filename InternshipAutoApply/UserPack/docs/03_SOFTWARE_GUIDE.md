@@ -70,13 +70,23 @@ Applications 页可组合使用：
 5. 建议先使用 **Create Gmail draft**，到 Gmail 再检查一次。
 6. 使用 **Review & send** 时，必须在确认窗口检查收件人、正文和附件。
 
+## 7. 在学校、家里或新电脑同步
+
+1. 原电脑升级后先点一次 **Sync Gmail**。这会为原电脑已经登记的 Cisty 对话补上同步标签。
+2. 新电脑导入相同公司 Excel，并在 My Workspace 配置自己的 OAuth JSON、填写相同 Gmail 地址。
+3. 首次授权时务必选择同一个 Gmail；软件会拦截与 My Workspace 地址不一致的账号。
+4. 点 **Sync Gmail**。软件会恢复 Cisty 的 Draft ready、Applied、Replied、发送时间和系统对话。
+5. 若 Gmail 中已有记录、但新电脑尚未导入对应公司，记录会留在 Gmail；导入公司列表后软件会自动再匹配。
+
+个人资料、简历路径、头像、Geoapify key、公司列表与站点计算仍保存在每台电脑本地，不会通过 Gmail 同步。
+
 软件不会在后台自动群发。
 
 ## 7. 查看邮件来往
 
 首次通过本软件发送后，该公司会建立一个 System conversation：
 
-- 只显示该软件建立并登记的 Gmail thread。
+- 只显示该软件建立并带有 Cisty 专用标签的 Gmail thread；草稿仅按 Cisty 私有标记识别。
 - 可刷新最新回复。
 - 可从软件内继续回复同一 thread。
 - 软件外独立发送、未登记的邮件不会显示。

@@ -35,7 +35,7 @@ Every Windows account stores its own mutable data under:
 
 This includes the SQLite database, settings, Gmail authorization token, and optional profile avatar. Resume and OAuth credential paths point to the current user's own files. None of these may be committed, bundled, or copied to another user.
 
-The application only syncs Gmail threads whose first message was sent through this application. It must not scan or display unrelated inbox conversations.
+The application only syncs Gmail threads whose first message was sent through this application. Cross-device sent state uses the Gmail label `Cisty/Applications`; sync queries only that label ID and must not scan or display unrelated inbox/sent conversations. Gmail forbids custom labels on drafts, so draft sync lists draft metadata and accepts only messages with `X-Cisty-App: Cisty`. New messages include a stable company-name hash in `X-Cisty-Company-Key`; legacy labelled threads fall back to verified recipient and subject matching.
 
 Never commit:
 
@@ -54,6 +54,7 @@ Never commit:
 - Calculated station data is stored in SQLite and is reused; recalculation overwrites the previous result.
 - Supported transit networks include MRT Putrajaya, MRT Kajang, LRT Kelana Jaya, LRT Ampang, LRT Sri Petaling, and KL Monorail.
 - Gmail draft, reviewed send, tracked-thread refresh, and reply are implemented.
+- Gmail roaming sync is implemented for school/home/new-PC use: automatic startup sync plus a manual Sync Gmail action restores Cisty drafts, Applied/Replied state, timestamps, and tracked conversations. The connected account is checked against My Workspace before any sync.
 - My Workspace is embedded in the main window.
 - The profile avatar can be selected or removed in My Workspace. The sidebar uses the same photo and falls back to the user's initials.
 - The approved Cisty squircle-C mark is used by the startup reveal, window icon, and EXE packaging. The electric outline plays once and respects Windows reduced-motion settings.

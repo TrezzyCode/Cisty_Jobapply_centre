@@ -6,7 +6,7 @@
 2. Run `install.bat` once. This installs PySide6 and the existing Excel/Gmail dependencies.
 3. Run `run_glass_ui.bat`.
 
-The new interface reads the same local database and settings as the existing application. It does not create a second company list or expose unrelated Gmail messages.
+The new interface reads the same local database and settings as the existing application. Sent application state roams through the signed-in Gmail account using the private `Cisty/Applications` label. Gmail does not allow custom labels on drafts, so draft sync reads draft metadata and accepts only messages carrying Cisty's private header. It does not create a second company list or query/expose unrelated inbox or sent messages.
 
 ## Existing interface
 
@@ -19,6 +19,8 @@ Each Windows user has separate data under:
 `%LOCALAPPDATA%\IT Internship Auto Apply`
 
 This includes application history, settings, the database, Gmail authorization token, and the optional profile photo selected in My Workspace. The sidebar falls back to the user's initials when no photo is selected. Do not copy that folder when sharing the application with another person.
+
+Profile data, API keys, resume paths, avatars, station calculations, and the imported company list remain local. Only Cisty-created Gmail drafts, sent applications, replies, thread IDs, and send times are restored through Gmail. On another computer, import the company Excel and connect the same Gmail account, then use **Sync Gmail**. Existing users should sync once on the original computer first so its locally registered Cisty threads receive the roaming label.
 
 ## Packaging
 

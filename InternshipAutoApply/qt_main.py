@@ -4,11 +4,13 @@ import math
 import time
 import json
 import base64
+import hashlib
 import threading
 import webbrowser
 import shutil
 from datetime import datetime
 from email.message import EmailMessage
+from email.utils import getaddresses
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import quote
@@ -42,6 +44,8 @@ COLORS = {
     'line': '#D9D0C5', 'surface': '#FFFCF8', 'glass': '#F8F3EC',
     'soft': '#F2ECE4', 'danger': '#A8433B'
 }
+
+CISTY_APPLICATION_LABEL = 'Cisty/Applications'
 
 
 def reduce_motion_enabled():
@@ -570,6 +574,8 @@ class MainWindow(QMainWindow):
         self.selected_id = None
         self._bulk_running = False
         self._conversation_syncing = False
+        self._gmail_syncing = False
+        self._gmail_sync_silent = False
         self._filter_widgets = []
         self._build_ui()
         self.setStyleSheet(APP_QSS)
@@ -579,8 +585,15 @@ class MainWindow(QMainWindow):
         self.poll_timer = QTimer(self)
         self.poll_timer.timeout.connect(lambda: self.refresh_conversation(silent=True))
         self.poll_timer.start(60_000)
+        self.gmail_roaming_timer = QTimer(self)
+        self.gmail_roaming_timer.timeout.connect(lambda: self.sync_gmail_account(silent=True))
+        self.gmail_roaming_timer.start(5 * 60_000)
         if not self.settings.get('profile_ready'):
             QTimer.singleShot(100, lambda: self.switch_page(2))
+        elif TOKEN_PATH.exists() and Path(self.settings.get('credentials_path', '')).is_file():
+            # Restore app-owned Gmail state after moving between school, home,
+            # a replacement laptop, or another Windows account.
+            QTimer.singleShot(1200, lambda: self.sync_gmail_account(silent=True))
 
     def _glass(self, name='glass'):
         frame = QFrame()
@@ -627,7 +640,7 @@ class MainWindow(QMainWindow):
             layout.addWidget(button)
         self.nav_buttons[0].setChecked(True)
         layout.addStretch()
-        privacy = QLabel('Private local workspace')
+        privacy = QLabel('Private profile\nGmail-synced applications')
         privacy.setObjectName('muted')
         privacy.setWordWrap(True)
         privacy.setAlignment(Qt.AlignCenter)
@@ -720,13 +733,16 @@ class MainWindow(QMainWindow):
         tools = QHBoxLayout()
         refresh = QPushButton('Refresh list')
         refresh.clicked.connect(self.refresh)
+        self.gmail_sync_button = QPushButton('Sync Gmail')
+        self.gmail_sync_button.setToolTip('Restore Cisty applications and conversations from this Gmail account')
+        self.gmail_sync_button.clicked.connect(self.sync_gmail_account)
         resume = QPushButton('Select resume PDF')
         resume.clicked.connect(self.choose_resume)
         self.bulk_button = QPushButton('Calculate stations')
         self.bulk_button.clicked.connect(lambda: self.calculate_all_nearest_stations(False))
         self.recalculate_button = QPushButton('Recalculate stations')
         self.recalculate_button.clicked.connect(lambda: self.calculate_all_nearest_stations(True))
-        for button in (refresh, resume, self.bulk_button, self.recalculate_button):
+        for button in (refresh, self.gmail_sync_button, resume, self.bulk_button, self.recalculate_button):
             tools.addWidget(button)
         tools.addStretch()
         self.filter_grid.addLayout(tools, 3, 0, 1, 5)
@@ -852,9 +868,12 @@ class MainWindow(QMainWindow):
         hint = QLabel('Only Gmail threads created by this application are stored and displayed here.')
         hint.setObjectName('muted')
         card = self._glass(); card_layout = QVBoxLayout(card)
-        note = QLabel('Select a company from Applications, then open its Conversation tab. This page never scans or displays unrelated inbox email.')
+        note = QLabel('Select a company from Applications, then open its Conversation tab. Sync Gmail restores only Cisty-labelled threads on another computer; unrelated inbox email is never queried or displayed.')
         note.setWordWrap(True); note.setAlignment(Qt.AlignCenter); note.setObjectName('muted')
-        card_layout.addStretch(); card_layout.addWidget(note); card_layout.addStretch()
+        sync = QPushButton('Sync Cisty applications from Gmail')
+        sync.setObjectName('primary')
+        sync.clicked.connect(self.sync_gmail_account)
+        card_layout.addStretch(); card_layout.addWidget(note); card_layout.addSpacing(12); card_layout.addWidget(sync, 0, Qt.AlignHCenter); card_layout.addStretch()
         layout.addWidget(title); layout.addWidget(hint); layout.addWidget(card,1)
         return page
 
@@ -980,7 +999,7 @@ class MainWindow(QMainWindow):
             local = str(r['state']).lower() in ('selangor','wilayah persekutuan kuala lumpur') or str(r['city']).lower() in ('kuala lumpur','petaling jaya')
             route_checked = bool(r['route_verified']) and r['station'] in LINE_STATIONS and r['walk_minutes'] is not None
             verified = route_checked and int(r['walk_minutes']) <= 10
-            ready = verified and bool(r['hr_email']) and '@' in r['hr_email'] and bool(r['email_verified']) and r['status'] != 'Applied'
+            ready = verified and bool(r['hr_email']) and '@' in r['hr_email'] and bool(r['email_verified']) and r['status'] == 'Not applied'
             industry, region = self.industry_filter.currentText(), self.region_filter.currentText()
             line, distance, status = self.line_filter.currentText(), self.distance_filter.currentText(), self.status_filter.currentText()
             if industry != 'All industries' and r['industry'] != industry: continue
@@ -1064,6 +1083,8 @@ class MainWindow(QMainWindow):
         try:
             added, updated, candidates = import_excel(path); self.refresh()
             QMessageBox.information(self,'Import complete',f'Companies added: {added:,}\nRecords updated: {updated:,}\nEmail candidates matched: {candidates:,}')
+            if TOKEN_PATH.exists() and Path(self.settings.get('credentials_path', '')).is_file():
+                QTimer.singleShot(100, lambda: self.sync_gmail_account(silent=True))
         except Exception as error:
             QMessageBox.critical(self,'Import failed',str(error))
 
@@ -1282,19 +1303,78 @@ class MainWindow(QMainWindow):
             if creds and creds.expired and creds.refresh_token: creds.refresh(GoogleRequest())
             else: creds=InstalledAppFlow.from_client_secrets_file(self.settings['credentials_path'],scopes).run_local_server(port=0)
             TOKEN_PATH.write_text(creds.to_json(),encoding='utf-8')
-        return build('gmail','v1',credentials=creds)
+        service = build('gmail','v1',credentials=creds)
+        profile = service.users().getProfile(userId='me').execute()
+        connected = str(profile.get('emailAddress', '')).strip().casefold()
+        self._connected_gmail = connected
+        expected = str(self.settings.get('sender_email', '')).strip().casefold()
+        if expected and connected and connected != expected:
+            raise ValueError(
+                f'The connected Gmail account is {profile.get("emailAddress", "")}, '
+                f'but My Workspace is set to {self.settings.get("sender_email", "")}. '
+                'Use the same Gmail account on every computer or remove the local Gmail token and sign in again.'
+            )
+        return service
+
+    @staticmethod
+    def _company_sync_key(name):
+        normalized = ''.join(ch.casefold() for ch in str(name or '') if ch.isalnum())
+        return hashlib.sha256(normalized.encode('utf-8')).hexdigest()[:32]
+
+    @staticmethod
+    def _gmail_label(service, name):
+        labels = service.users().labels().list(userId='me').execute().get('labels', [])
+        found = next((label for label in labels if label.get('name') == name), None)
+        if found:
+            return found['id']
+        created = service.users().labels().create(
+            userId='me',
+            body={
+                'name': name,
+                'labelListVisibility': 'labelShow',
+                'messageListVisibility': 'show',
+            },
+        ).execute()
+        return created['id']
+
+    @staticmethod
+    def _list_gmail_items(request_factory):
+        items = []
+        page_token = None
+        while True:
+            response = request_factory(page_token).execute()
+            page_items = response.get('threads')
+            if page_items is None:
+                page_items = response.get('messages')
+            if page_items is None:
+                page_items = response.get('drafts', [])
+            items.extend(page_items)
+            page_token = response.get('nextPageToken')
+            if not page_token:
+                return items
 
     def _gmail_worker(self,cid,to,subject,body,resume,send):
-        service=self._gmail_service(); message=EmailMessage(); message['To']=to; message['Subject']=subject; message.set_content(body)
+        con = db(); company = con.execute('SELECT name FROM companies WHERE id=?', (cid,)).fetchone(); con.close()
+        company_name = company['name'] if company else ''
+        service=self._gmail_service(); message=EmailMessage(); message['To']=to; message['Subject']=subject
+        message['X-Cisty-App'] = 'Cisty'
+        message['X-Cisty-Company-Key'] = self._company_sync_key(company_name)
+        message.set_content(body)
         with open(resume,'rb') as file: message.add_attachment(file.read(),maintype='application',subtype='pdf',filename=Path(resume).name)
         raw=base64.urlsafe_b64encode(message.as_bytes()).decode()
+        warning = ''
         if send:
             result=service.users().messages().send(userId='me',body={'raw':raw}).execute(); status='Applied'; sent=datetime.now().isoformat(timespec='minutes')
+            try:
+                label_id = self._gmail_label(service, CISTY_APPLICATION_LABEL)
+                service.users().threads().modify(userId='me', id=result['threadId'], body={'addLabelIds':[label_id]}).execute()
+            except Exception as error:
+                warning = f'Email was sent, but Gmail sync labelling needs a retry: {error}'
             self._sync_gmail_thread(service,cid,result['threadId'])
         else:
-            service.users().drafts().create(userId='me',body={'message':{'raw':raw}}).execute(); status='Draft ready'; sent=''
+            result = service.users().drafts().create(userId='me',body={'message':{'raw':raw}}).execute(); status='Draft ready'; sent=''
         con=db(); con.execute('UPDATE companies SET status=?,last_sent=? WHERE id=?',(status,sent,cid)); con.commit(); con.close()
-        return {'send':send}
+        return {'send':send, 'warning':warning}
 
     @staticmethod
     def _message_headers(message):
@@ -1309,17 +1389,178 @@ class MainWindow(QMainWindow):
             if text: return text
         return ''
 
-    def _sync_gmail_thread(self,service,company_id,thread_id):
-        thread=service.users().threads().get(userId='me',id=thread_id,format='full').execute(); con=db()
+    def _sync_gmail_thread(self,service,company_id,thread_id,thread=None):
+        thread = thread or service.users().threads().get(userId='me',id=thread_id,format='full').execute()
+        con=db()
         for message in thread.get('messages',[]):
             headers=self._message_headers(message); direction='outbound' if 'SENT' in message.get('labelIds',[]) else 'inbound'
             con.execute('''INSERT OR REPLACE INTO system_messages(gmail_message_id,company_id,gmail_thread_id,direction,sender,recipient,subject,body,sent_at,internal_date) VALUES(?,?,?,?,?,?,?,?,?,?)''',
                 (message['id'],company_id,thread_id,direction,headers.get('from',''),headers.get('to',''),headers.get('subject',''),self._message_body(message.get('payload',{})),headers.get('date',''),int(message.get('internalDate','0') or 0)))
         first=(thread.get('messages') or [{}])[0].get('id','')
-        con.execute('''INSERT INTO system_threads(company_id,gmail_thread_id,recipient,initial_message_id,last_synced_at) VALUES(?,?,?,?,?) ON CONFLICT(company_id) DO UPDATE SET gmail_thread_id=excluded.gmail_thread_id,last_synced_at=excluded.last_synced_at''',(company_id,thread_id,'',first,datetime.now().isoformat(timespec='minutes')))
+        first_headers = self._message_headers((thread.get('messages') or [{}])[0])
+        recipient = first_headers.get('to', '')
+        con.execute('DELETE FROM system_threads WHERE gmail_thread_id=? AND company_id<>?', (thread_id, company_id))
+        con.execute('''INSERT INTO system_threads(company_id,gmail_thread_id,recipient,initial_message_id,last_synced_at) VALUES(?,?,?,?,?) ON CONFLICT(company_id) DO UPDATE SET gmail_thread_id=excluded.gmail_thread_id,recipient=excluded.recipient,initial_message_id=excluded.initial_message_id,last_synced_at=excluded.last_synced_at''',(company_id,thread_id,recipient,first,datetime.now().isoformat(timespec='minutes')))
         inbound=con.execute("SELECT COUNT(*) FROM system_messages WHERE company_id=? AND direction='inbound'",(company_id,)).fetchone()[0]
         con.execute("UPDATE companies SET last_contact=?,status=CASE WHEN ? > 0 AND status IN ('Applied','No response') THEN 'Replied' ELSE status END WHERE id=?",(datetime.now().isoformat(timespec='minutes'),inbound,company_id))
         con.commit(); con.close()
+
+    def _match_gmail_company(self, con, messages):
+        """Match an app-labelled message without using local row IDs across PCs."""
+        rows = con.execute('SELECT id,name,hr_email FROM companies').fetchall()
+        if not rows:
+            return None
+        headers = [self._message_headers(message) for message in messages]
+        sync_key = next((item.get('x-cisty-company-key', '') for item in headers if item.get('x-cisty-company-key')), '')
+        if sync_key:
+            matches = [row for row in rows if self._company_sync_key(row['name']) == sync_key]
+            if len(matches) == 1:
+                return matches[0]
+
+        recipients = {
+            address.casefold()
+            for item in headers
+            for _name, address in getaddresses([item.get('to', '')])
+            if address
+        }
+        matches = [row for row in rows if str(row['hr_email'] or '').strip().casefold() in recipients]
+        if len(matches) == 1:
+            return matches[0]
+
+        # Legacy Cisty messages predate the portable key. Their subject still
+        # provides a safe fallback because only locally-known Cisty threads are
+        # ever given the Cisty label during migration.
+        subjects = ' '.join(item.get('subject', '') for item in headers).casefold()
+        named = [row for row in rows if str(row['name'] or '').strip() and str(row['name']).strip().casefold() in subjects]
+        if named:
+            return max(named, key=lambda row: len(str(row['name'])))
+        return None
+
+    @staticmethod
+    def _sent_at_from_thread(thread):
+        timestamps = [
+            int(message.get('internalDate', '0') or 0)
+            for message in thread.get('messages', [])
+            if 'SENT' in message.get('labelIds', [])
+        ]
+        if not timestamps:
+            return ''
+        return datetime.fromtimestamp(min(timestamps) / 1000).isoformat(timespec='minutes')
+
+    def sync_gmail_account(self, checked=False, silent=False):
+        del checked
+        if self._gmail_syncing:
+            return
+        credentials = self.settings.get('credentials_path', '')
+        if not credentials or not Path(credentials).is_file():
+            if not silent:
+                QMessageBox.critical(self, 'Gmail not configured', 'Select credentials.json in My Workspace first.')
+            return
+        self._gmail_syncing = True
+        self._gmail_sync_silent = bool(silent)
+        self.gmail_sync_button.setEnabled(False)
+        self.gmail_sync_button.setText('Syncing…')
+        self._run_task('gmail_sync', self._gmail_sync_worker, bool(silent))
+
+    def _gmail_sync_worker(self, silent):
+        service = self._gmail_service()
+        application_label = self._gmail_label(service, CISTY_APPLICATION_LABEL)
+
+        # One-time migration on the computer that originally sent the mail:
+        # publish only thread IDs already registered by Cisty. No inbox scan.
+        con = db()
+        known_threads = con.execute('SELECT gmail_thread_id FROM system_threads').fetchall()
+        con.close()
+        published = 0
+        account = getattr(self, '_connected_gmail', '') or str(self.settings.get('sender_email', '')).strip().casefold()
+        migration_needed = self.settings.get('gmail_label_migration_account') != account
+        if migration_needed:
+            for row in known_threads:
+                try:
+                    service.users().threads().modify(
+                        userId='me', id=row['gmail_thread_id'], body={'addLabelIds':[application_label]}
+                    ).execute()
+                    published += 1
+                except Exception:
+                    # The user may have deleted a historical Gmail thread. That
+                    # must not prevent all other application records from syncing.
+                    continue
+
+        # Gmail does not permit user labels on draft messages. Inspect draft
+        # metadata only and accept records carrying Cisty's private header.
+        draft_refs = self._list_gmail_items(
+            lambda token: service.users().drafts().list(
+                userId='me', pageToken=token, maxResults=100
+            )
+        )
+        restored_drafts = 0
+        con = db()
+        for reference in draft_refs:
+            draft = service.users().drafts().get(userId='me', id=reference['id'], format='metadata').execute()
+            message = draft.get('message', {})
+            headers = self._message_headers(message)
+            if headers.get('x-cisty-app', '').casefold() != 'cisty':
+                continue
+            company = self._match_gmail_company(con, [message])
+            if company:
+                con.execute(
+                    "UPDATE companies SET status='Draft ready' WHERE id=? AND status='Not applied'",
+                    (company['id'],),
+                )
+                restored_drafts += 1
+        con.commit(); con.close()
+
+        thread_refs = self._list_gmail_items(
+            lambda token: service.users().threads().list(
+                userId='me', labelIds=[application_label], pageToken=token, maxResults=100
+            )
+        )
+        thread_ids = {reference['id'] for reference in thread_refs}
+        restored = replied = unmatched = 0
+        matched_companies = set()
+        threads = [
+            service.users().threads().get(userId='me', id=thread_id, format='full').execute()
+            for thread_id in thread_ids
+        ]
+        threads.sort(key=lambda thread: max(
+            (int(message.get('internalDate', '0') or 0) for message in thread.get('messages', [])),
+            default=0,
+        ))
+        for thread in threads:
+            thread_id = thread['id']
+            con = db()
+            company = self._match_gmail_company(con, thread.get('messages', []))
+            if not company:
+                unmatched += 1
+                con.close()
+                continue
+            inbound = sum(1 for message in thread.get('messages', []) if 'SENT' not in message.get('labelIds', []))
+            con.execute(
+                """UPDATE companies
+                   SET status=CASE
+                       WHEN ? > 0 AND status IN ('Not applied','Draft ready','Applied','No response') THEN 'Replied'
+                       WHEN status IN ('Not applied','Draft ready') THEN 'Applied'
+                       ELSE status END,
+                       last_sent=?
+                   WHERE id=?""",
+                (inbound, self._sent_at_from_thread(thread), company['id']),
+            )
+            con.commit(); con.close()
+            self._sync_gmail_thread(service, company['id'], thread_id, thread=thread)
+            matched_companies.add(company['id'])
+            restored += 1
+            if inbound:
+                replied += 1
+        return {
+            'silent': silent,
+            'restored': len(matched_companies),
+            'threads': restored,
+            'replied': replied,
+            'drafts': restored_drafts,
+            'unmatched': unmatched,
+            'published': published,
+            'migration_account': account,
+        }
 
     def load_conversation(self):
         self.conversation_text.clear()
@@ -1379,7 +1620,33 @@ class MainWindow(QMainWindow):
             self._bulk_running=False; self.bulk_button.setEnabled(True); self.recalculate_button.setEnabled(True); self.refresh()
             QMessageBox.information(self,'Station calculation complete',f"Calculated: {result['located']:,}\nAddress not located: {result['failed']:,}")
         elif name == 'gmail':
-            self.refresh(); self.load_conversation(); QMessageBox.information(self,'Gmail complete','Email sent and conversation tracking started.' if result['send'] else 'Gmail draft created.')
+            self.refresh(); self.load_conversation()
+            message = 'Email sent and conversation tracking started.' if result['send'] else 'Gmail draft created.'
+            if result.get('warning'):
+                message += '\n\n' + result['warning']
+            QMessageBox.information(self,'Gmail complete',message)
+        elif name == 'gmail_sync':
+            self._gmail_syncing = False
+            self._gmail_sync_silent = False
+            self.gmail_sync_button.setEnabled(True)
+            self.gmail_sync_button.setText('Sync Gmail')
+            self.gmail_sync_button.setToolTip('Restore Cisty applications and conversations from this Gmail account')
+            if result.get('migration_account'):
+                self.settings['gmail_label_migration_account'] = result['migration_account']
+                save_settings(self.settings)
+            self.refresh()
+            if self.selected_id:
+                self.on_select()
+            if not result.get('silent'):
+                details = (
+                    f"Companies restored: {result['restored']:,}\n"
+                    f"Tracked conversations: {result['threads']:,}\n"
+                    f"Replies found: {result['replied']:,}\n"
+                    f"Drafts restored: {result['drafts']:,}"
+                )
+                if result['unmatched']:
+                    details += f"\n\nWaiting for company-list import: {result['unmatched']:,}"
+                QMessageBox.information(self, 'Gmail sync complete', details)
         elif name == 'conversation':
             self._conversation_syncing=False; self.refresh(); self.load_conversation()
         elif name == 'reply':
@@ -1389,6 +1656,13 @@ class MainWindow(QMainWindow):
         if name == 'bulk_station':
             self._bulk_running=False; self.bulk_button.setEnabled(True); self.recalculate_button.setEnabled(True)
         if name == 'conversation': self._conversation_syncing=False
+        if name == 'gmail_sync':
+            self._gmail_syncing = False
+            self.gmail_sync_button.setEnabled(True)
+            self.gmail_sync_button.setText('Sync Gmail')
+            if self._gmail_sync_silent:
+                self.gmail_sync_button.setToolTip('Automatic Gmail sync paused: ' + error)
+                return
         QMessageBox.critical(self,'Action failed',error)
 
 
