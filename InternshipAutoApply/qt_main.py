@@ -138,6 +138,18 @@ def reduce_motion_enabled():
     return False
 
 
+def theme_switch_reduce_motion_enabled():
+    """Keep the approved switch motion unless the app override opts out.
+
+    Windows' client-animation flag can be disabled independently of the
+    user's preference for this authored control. The supplied switch is a
+    deliberate state explanation, so Cisty preserves it by default while
+    retaining an explicit accessibility/test override.
+    """
+    override = os.environ.get('QT_REDUCE_MOTION', '').strip().lower()
+    return override in {'1', 'true', 'yes', 'on'}
+
+
 def cisty_mark_path(rect):
     """Return the approved squircle-C silhouette mapped into ``rect``."""
     source = QPainterPath(QPointF(800, 120))
@@ -182,11 +194,11 @@ QLabel#success {{ color: {COLORS['green']}; font-weight: 600; }}
 QLabel#profileName {{ font-size: 18px; font-weight: 600; color: {COLORS['ink']}; }}
 QPushButton {{
     min-height: 36px; padding: 0 14px; border-radius: 10px;
-    border: 1px solid {css_rgba(COLORS['line'], 188)}; background: {css_rgba(COLORS['control'], 208)};
+    border: 1px solid {css_rgba(COLORS['line'], 174)}; background: {css_rgba(COLORS['control'], 166)};
     font-weight: 500;
 }}
 QPushButton:hover {{ border-color: {css_rgba(COLORS['scrollbar_hover'], 214)}; }}
-QPushButton:pressed {{ background: {css_rgba(COLORS['control_pressed'], 216)}; }}
+QPushButton:pressed {{ background: {css_rgba(COLORS['control_pressed'], 194)}; }}
 QPushButton:disabled {{ color: {COLORS['disabled_text']}; background: {COLORS['disabled_bg']}; }}
 QPushButton#primary {{ color: {COLORS['on_accent']}; background: {COLORS['accent']}; border: none; min-height: 40px; }}
 QPushButton#primary:hover {{ background: {COLORS['accent']}; }}
@@ -198,9 +210,9 @@ QPushButton#nav {{
     background: transparent; color: {COLORS['nav_text']}; font-weight: 500;
 }}
 QPushButton#nav:hover {{ background: transparent; }}
-QPushButton#nav:checked {{ color: {COLORS['nav_checked_text']}; background: {COLORS['accent_soft']}; border: 1px solid {COLORS['nav_checked_line']}; }}
+QPushButton#nav:checked {{ color: {COLORS['nav_checked_text']}; background: {css_rgba(COLORS['accent_soft'], 188)}; border: 1px solid {COLORS['nav_checked_line']}; }}
 QLineEdit, QComboBox, QPlainTextEdit {{
-    color: {COLORS['ink']}; background: {css_rgba(COLORS['control'], 218)}; border: 1px solid {css_rgba(COLORS['line'], 196)};
+    color: {COLORS['ink']}; background: {css_rgba(COLORS['control'], 176)}; border: 1px solid {css_rgba(COLORS['line'], 184)};
     border-radius: 9px; padding: 7px; selection-background-color: {COLORS['accent_soft']};
     selection-color: {COLORS['ink']};
 }}
@@ -215,14 +227,14 @@ QComboBox QAbstractItemView {{
 }}
 QComboBox QAbstractItemView::item {{ min-height: 32px; padding: 3px 9px; }}
 QTableWidget {{
-    color: {COLORS['ink']}; background: {css_rgba(COLORS['surface'], 202)}; alternate-background-color: {css_rgba(COLORS['table_alt'], 218)};
+    color: {COLORS['ink']}; background: {css_rgba(COLORS['surface'], 148)}; alternate-background-color: {css_rgba(COLORS['table_alt'], 162)};
     border: 1px solid {COLORS['line']}; border-radius: 12px; gridline-color: {COLORS['grid']};
     outline: 0;
 }}
 QTableWidget::item {{ padding: 8px; border-bottom: 1px solid {COLORS['item_line']}; }}
-QTableWidget::item:selected {{ color: {COLORS['ink']}; background: {COLORS['accent_soft']}; }}
+QTableWidget::item:selected {{ color: {COLORS['ink']}; background: {css_rgba(COLORS['accent_soft'], 214)}; }}
 QHeaderView::section {{
-    color: {COLORS['header_text']}; background: {css_rgba(COLORS['header_bg'], 226)}; border: none; border-right: 1px solid {COLORS['header_line']};
+    color: {COLORS['header_text']}; background: {css_rgba(COLORS['header_bg'], 188)}; border: none; border-right: 1px solid {COLORS['header_line']};
     border-bottom: 1px solid {COLORS['header_line']}; padding: 10px 8px; font-weight: 600;
 }}
 QTabWidget::pane {{ color: {COLORS['ink']}; border: 1px solid {css_rgba(COLORS['line'], 144)}; border-radius: 12px; background: transparent; top: -1px; }}
@@ -231,7 +243,7 @@ QTabBar::tab:selected {{ color: {COLORS['accent_hover']}; background: transparen
 QScrollArea {{ border: none; background: transparent; }}
 QScrollArea > QWidget > QWidget, QWidget#panelBody {{ color: {COLORS['ink']}; background: transparent; }}
 QCheckBox {{ color: {COLORS['ink']}; spacing: 8px; }}
-QCheckBox::indicator {{ width: 17px; height: 17px; border: 1px solid {COLORS['check_line']}; border-radius: 5px; background: {COLORS['control']}; }}
+QCheckBox::indicator {{ width: 17px; height: 17px; border: 1px solid {COLORS['check_line']}; border-radius: 5px; background: {css_rgba(COLORS['control'], 176)}; }}
 QCheckBox::indicator:checked {{ background: {COLORS['accent']}; border-color: {COLORS['accent']}; }}
 QScrollBar:vertical {{
     width: 14px; margin: 4px 2px; border: none; background: transparent;
@@ -499,37 +511,72 @@ class GlassFrame(QFrame):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        rect = QRectF(self.rect()).adjusted(.75, .75, -.75, -.75)
+        rect = QRectF(self.rect()).adjusted(2.5, 2.0, -2.5, -3.0)
         radius = 16 if self._material == 'profileCard' else 18
         path = QPainterPath(); path.addRoundedRect(rect, radius, radius)
         dark = QColor(COLORS['canvas_1']).lightness() < 128
         token = 'surface' if self._material == 'surface' else ('profile_bg' if self._material == 'profileCard' else 'glass')
         base = QColor(COLORS[token])
-        top = base.lighter(132 if dark else 106)
-        bottom = base.darker(108 if dark else 102)
-        base.setAlpha(188 if dark else 210)
-        top.setAlpha(202 if dark else 220)
-        bottom.setAlpha(174 if dark else 198)
+        top = base.lighter(148 if dark else 110)
+        bottom = base.darker(112 if dark else 103)
+        base.setAlpha(128 if dark else 192)
+        top.setAlpha(154 if dark else 210)
+        bottom.setAlpha(106 if dark else 168)
+
+        # Offset depth sits below the crisp refractive edge.
+        for offset, width, alpha in ((3.0, 5.0, 18), (2.0, 3.0, 26), (1.0, 1.5, 34)):
+            shadow_path = QTransform.fromTranslate(0, offset).map(path)
+            shadow = QColor('#000000'); shadow.setAlpha(alpha if dark else round(alpha*.55))
+            painter.setBrush(Qt.NoBrush)
+            painter.setPen(QPen(shadow, width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+            painter.drawPath(shadow_path)
+
         material = QLinearGradient(rect.topLeft(), rect.bottomRight())
-        material.setColorAt(0, top); material.setColorAt(.58, base); material.setColorAt(1, bottom)
+        material.setColorAt(0, top); material.setColorAt(.46, base); material.setColorAt(1, bottom)
         painter.fillPath(path, material)
 
+        # Frost and local light pickup make the center read as a lens rather
+        # than as another flat black card.
+        painter.save(); painter.setClipPath(path)
+        pickup = QRadialGradient(
+            rect.left()+rect.width()*.18,
+            rect.top()+rect.height()*.12,
+            max(rect.width(),rect.height())*.72,
+        )
+        pickup_core = QColor('#FFFFFF'); pickup_core.setAlpha(26 if dark else 42)
+        pickup_edge = QColor('#FFFFFF'); pickup_edge.setAlpha(0)
+        pickup.setColorAt(0, pickup_core)
+        pickup.setColorAt(.55, QColor(255,255,255,8 if dark else 16))
+        pickup.setColorAt(1, pickup_edge)
+        painter.fillPath(path, QBrush(pickup))
+        painter.restore()
+
         border = QLinearGradient(rect.topLeft(), rect.bottomRight())
-        bright = QColor('#FFFFFF'); bright.setAlpha(82 if dark else 156)
-        quiet = QColor(COLORS['line']); quiet.setAlpha(104 if dark else 144)
-        border.setColorAt(0, bright); border.setColorAt(.42, quiet); border.setColorAt(1, quiet)
-        painter.setBrush(Qt.NoBrush); painter.setPen(QPen(QBrush(border), 1))
+        bright = QColor('#FFFFFF'); bright.setAlpha(128 if dark else 184)
+        quiet = QColor(COLORS['line']); quiet.setAlpha(108 if dark else 148)
+        dim = QColor('#FFFFFF'); dim.setAlpha(30 if dark else 72)
+        border.setColorAt(0, bright); border.setColorAt(.34, quiet); border.setColorAt(1, dim)
+        painter.setBrush(Qt.NoBrush); painter.setPen(QPen(QBrush(border), 1.25))
         painter.drawPath(path)
 
-        # A short specular edge gives the material a light source without
-        # turning every panel into a glowing card.
-        specular = QPainterPath(QPointF(rect.left()+radius, rect.top()+1))
-        specular.cubicTo(rect.left()+rect.width()*.30, rect.top()-.2,
-                         rect.left()+rect.width()*.50, rect.top()+.2,
-                         rect.left()+rect.width()*.62, rect.top()+1)
-        shine = QColor('#FFFFFF'); shine.setAlpha(72 if dark else 118)
-        painter.setPen(QPen(shine, 1.1, Qt.SolidLine, Qt.RoundCap))
-        painter.drawPath(specular)
+        inner = QRectF(rect).adjusted(1.6,1.6,-1.6,-1.6)
+        inner_edge = QColor('#FFFFFF'); inner_edge.setAlpha(26 if dark else 62)
+        painter.setPen(QPen(inner_edge, .8))
+        painter.drawRoundedRect(inner, radius-1.6, radius-1.6)
+
+        # The previous short line looked unfinished. This specular highlight
+        # spans the material and fades naturally at both ends.
+        top_light = QLinearGradient(rect.left()+radius, 0, rect.right()-radius, 0)
+        transparent = QColor('#FFFFFF'); transparent.setAlpha(0)
+        shine = QColor('#FFFFFF'); shine.setAlpha(126 if dark else 178)
+        top_light.setColorAt(0, transparent); top_light.setColorAt(.18, shine)
+        top_light.setColorAt(.64, QColor(255,255,255,42 if dark else 74))
+        top_light.setColorAt(1, transparent)
+        painter.setPen(QPen(QBrush(top_light), 1.35, Qt.SolidLine, Qt.RoundCap))
+        painter.drawLine(
+            QPointF(rect.left()+radius, rect.top()+.7),
+            QPointF(rect.right()-radius, rect.top()+.7),
+        )
         painter.end()
         super().paintEvent(event)
 
@@ -602,8 +649,10 @@ class ThemeSwitch(QWidget):
         super().__init__(parent)
         self._dark = bool(dark)
         self._progress = 1.0 if self._dark else 0.0
+        self._thumb_progress = self._progress
         self._compact = False
-        self._animation = None
+        self._atmosphere_animation = None
+        self._thumb_animation = None
         self._hovered = False
         self._pressed = False
         self.setFixedSize(86, 38)
@@ -627,6 +676,15 @@ class ThemeSwitch(QWidget):
 
     progress = Property(float, get_progress, set_progress)
 
+    def get_thumb_progress(self):
+        return self._thumb_progress
+
+    def set_thumb_progress(self, value):
+        self._thumb_progress = max(-0.08, min(1.08, float(value)))
+        self.update()
+
+    thumbProgress = Property(float, get_thumb_progress, set_thumb_progress)
+
     def _update_accessibility(self):
         target = 'light' if self._dark else 'dark'
         self.setToolTip(f'Switch to {target} theme')
@@ -639,28 +697,48 @@ class ThemeSwitch(QWidget):
 
     def set_dark(self, dark, animate=True):
         dark = bool(dark)
-        if dark == self._dark and abs(self._progress - float(dark)) < .001:
+        if (dark == self._dark
+                and abs(self._progress - float(dark)) < .001
+                and abs(self._thumb_progress - float(dark)) < .001):
             return
         self._dark = dark
         self._update_accessibility()
         target = 1.0 if dark else 0.0
-        if not animate or reduce_motion_enabled():
+        if not animate or theme_switch_reduce_motion_enabled():
             self.set_progress(target)
+            self.set_thumb_progress(target)
             return
-        if self._animation:
-            self._animation.stop()
-        animation = QPropertyAnimation(self, b'progress', self)
-        animation.setDuration(300)
-        animation.setStartValue(self._progress)
-        animation.setEndValue(target)
-        # Match the supplied control's authored curve: gentle pickup, a small
-        # late settle, and no hard early jump. QPropertyAnimation remains
-        # retargetable when the user toggles again mid-flight.
-        curve = QEasingCurve(QEasingCurve.BezierSpline)
-        curve.addCubicBezierSegment(QPointF(0.0, -0.02), QPointF(0.4, 1.25), QPointF(1.0, 1.0))
-        animation.setEasingCurve(curve)
-        self._animation = animation
-        animation.start()
+        if self._atmosphere_animation:
+            self._atmosphere_animation.stop()
+        if self._thumb_animation:
+            self._thumb_animation.stop()
+
+        # The supplied switch has two deliberately different timelines. The
+        # thumb arrives first, while the sky, clouds, stars and moon complete
+        # their slower environmental transition around it.
+        atmosphere = QPropertyAnimation(self, b'progress', self)
+        atmosphere.setDuration(500)
+        atmosphere.setStartValue(self._progress)
+        atmosphere.setEndValue(target)
+        atmosphere_curve = QEasingCurve(QEasingCurve.BezierSpline)
+        atmosphere_curve.addCubicBezierSegment(
+            QPointF(0.0, -0.02), QPointF(0.4, 1.25), QPointF(1.0, 1.0)
+        )
+        atmosphere.setEasingCurve(atmosphere_curve)
+        self._atmosphere_animation = atmosphere
+
+        thumb = QPropertyAnimation(self, b'thumbProgress', self)
+        thumb.setDuration(300)
+        thumb.setStartValue(self._thumb_progress)
+        thumb.setEndValue(target)
+        thumb_curve = QEasingCurve(QEasingCurve.BezierSpline)
+        thumb_curve.addCubicBezierSegment(
+            QPointF(0.0, -0.02), QPointF(0.35, 1.17), QPointF(1.0, 1.0)
+        )
+        thumb.setEasingCurve(thumb_curve)
+        self._thumb_animation = thumb
+        atmosphere.start()
+        thumb.start()
 
     @staticmethod
     def _mix(first, second, amount):
@@ -784,7 +862,7 @@ class ThemeSwitch(QWidget):
 
         diameter = rect.height()-8
         travel = rect.width()-diameter-8
-        thumb_progress = max(-.05, min(1.05, self._progress))
+        thumb_progress = max(-.05, min(1.05, self._thumb_progress))
         hover_nudge = 0.0
         if self._hovered and not self._pressed:
             hover_nudge = 1.8 if state < .5 else -1.8
@@ -858,16 +936,17 @@ class Backdrop(QWidget):
         # information without becoming a moving decorative background.
         dark = QColor(COLORS['canvas_1']).lightness() < 128
         for cx, cy, radius, color, alpha in (
-            (.86, .10, .44, COLORS['accent'], 48 if dark else 30),
-            (.16, .82, .50, '#FFFFFF', 22 if dark else 76),
-            (.58, .58, .42, COLORS['route'], 18 if dark else 24),
+            (.86, .10, .44, COLORS['accent'], 88 if dark else 34),
+            (.16, .82, .50, '#FFFFFF', 38 if dark else 82),
+            (.58, .58, .42, COLORS['route'], 31 if dark else 28),
+            (.93, .64, .32, COLORS['accent'], 42 if dark else 22),
         ):
             glow = QRadialGradient(self.width()*cx, self.height()*cy, max(self.width(), self.height())*radius)
             core = QColor(color); core.setAlpha(alpha)
             edge = QColor(color); edge.setAlpha(0)
             glow.setColorAt(0, core); glow.setColorAt(.56, QColor(core.red(),core.green(),core.blue(),round(alpha*.36))); glow.setColorAt(1, edge)
             painter.fillRect(self.rect(), QBrush(glow))
-        route_color = QColor(COLORS['route']); route_color.setAlpha(32)
+        route_color = QColor(COLORS['route']); route_color.setAlpha(44 if dark else 34)
         painter.setPen(QPen(route_color, 2.0, Qt.SolidLine, Qt.RoundCap))
         route = QPainterPath(QPointF(-30, self.height() * .72))
         route.cubicTo(self.width() * .22, self.height() * .58, self.width() * .36, self.height() * .83, self.width() * .58, self.height() * .65)
@@ -1176,7 +1255,6 @@ class MainWindow(QMainWindow):
         self._gmail_sync_cancel = threading.Event()
         self._filter_widgets = []
         self._theme_transition_serial = 0
-        self._theme_fade_animation = None
         self._build_ui()
         self.setStyleSheet(build_app_qss())
         self.task_ok.connect(self._task_complete)
@@ -1574,62 +1652,38 @@ class MainWindow(QMainWindow):
         target_theme = 'dark' if dark else 'light'
         self._theme_transition_serial += 1
         serial = self._theme_transition_serial
-        if reduce_motion_enabled():
+        if theme_switch_reduce_motion_enabled():
             self._commit_theme(target_theme)
             return
 
-        root = self.centralWidget()
-        effect = root.graphicsEffect()
-        if not isinstance(effect, QGraphicsOpacityEffect):
-            effect = QGraphicsOpacityEffect(root)
-            effect.setOpacity(1.0)
-            root.setGraphicsEffect(effect)
-        if self._theme_fade_animation:
-            self._theme_fade_animation.stop()
-        fade_out = QPropertyAnimation(effect, b'opacity', self)
-        fade_out.setDuration(90)
-        fade_out.setStartValue(effect.opacity())
-        fade_out.setEndValue(.84)
-        fade_out.setEasingCurve(QEasingCurve.OutCubic)
-        fade_out.finished.connect(
-            lambda: self._finish_theme_transition(serial, target_theme, effect)
-        )
-        self._theme_fade_animation = fade_out
-        fade_out.start()
+        # Let both authored timelines finish before the one-time stylesheet
+        # swap. Re-polishing the large company view during the final 200 ms of
+        # atmosphere motion would stall it; fading the whole root was worse
+        # because it forced the table to repaint on every frame.
+        QTimer.singleShot(520, lambda: self._commit_theme_if_current(serial, target_theme))
 
-    def _finish_theme_transition(self, serial, target_theme, effect):
-        if serial != self._theme_transition_serial:
-            return
-        self._commit_theme(target_theme)
-        fade_in = QPropertyAnimation(effect, b'opacity', self)
-        fade_in.setDuration(160)
-        fade_in.setStartValue(effect.opacity())
-        fade_in.setEndValue(1.0)
-        fade_in.setEasingCurve(QEasingCurve.OutCubic)
-        fade_in.finished.connect(
-            lambda: self._clear_theme_effect(serial, effect)
-        )
-        self._theme_fade_animation = fade_in
-        fade_in.start()
-
-    def _clear_theme_effect(self, serial, effect):
-        if serial == self._theme_transition_serial and self.centralWidget().graphicsEffect() is effect:
-            self.centralWidget().setGraphicsEffect(None)
+    def _commit_theme_if_current(self, serial, target_theme):
+        if serial == self._theme_transition_serial:
+            self._commit_theme(target_theme)
 
     def _commit_theme(self, target_theme):
-        self.current_theme = target_theme
-        set_active_theme(self.current_theme)
-        if QApplication.instance():
-            apply_application_palette(QApplication.instance())
-        self.setStyleSheet(build_app_qss())
-        for button, kind in zip(self.nav_buttons, self.nav_icon_kinds):
-            button.setIcon(line_icon(kind))
-        self.import_button.setIcon(line_icon('import'))
-        self.nav_avatar.update(); self.workspace_avatar.update()
+        self.setUpdatesEnabled(False)
+        try:
+            self.current_theme = target_theme
+            set_active_theme(self.current_theme)
+            if QApplication.instance():
+                apply_application_palette(QApplication.instance())
+            self.setStyleSheet(build_app_qss())
+            for button, kind in zip(self.nav_buttons, self.nav_icon_kinds):
+                button.setIcon(line_icon(kind))
+            self.import_button.setIcon(line_icon('import'))
+            self.nav_avatar.update(); self.workspace_avatar.update()
+            self._apply_windows_titlebar()
+            self.settings['theme'] = self.current_theme
+            save_settings(self.settings)
+        finally:
+            self.setUpdatesEnabled(True)
         self.centralWidget().update()
-        self._apply_windows_titlebar()
-        self.settings['theme'] = self.current_theme
-        save_settings(self.settings)
 
     def _apply_windows_titlebar(self):
         if sys.platform != 'win32' or not self.isVisible():
