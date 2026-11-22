@@ -61,23 +61,23 @@ LIGHT_THEME = {
 }
 
 DARK_THEME = {
-    'ink':'#F3EEE8', 'muted':'#B8ADA4', 'accent':'#D97855', 'accent_hover':'#EC8A67',
-    'accent_soft':'#4A2D24', 'on_accent':'#1D1512', 'green':'#83B098', 'on_green':'#111914',
-    'line':'#3B3530', 'surface':'#211E1B', 'glass':'#1B1816', 'soft':'#2A2521',
-    'danger':'#E2847B', 'profile_bg':'#28221E', 'profile_line':'#463A33',
-    'control':'#292521', 'control_hover':'#342E29', 'control_pressed':'#3B322C',
-    'disabled_text':'#847A72', 'disabled_bg':'#25211E', 'quiet_hover':'#352A25',
-    'nav_text':'#CFC5BC', 'nav_hover':'#2D2723', 'nav_checked_text':'#F7E9E1',
-    'nav_checked_line':'#704738', 'popup_alt':'#25211E', 'popup_line':'#4A413A',
-    'table_alt':'#25211E', 'grid':'#37312C', 'item_line':'#342E29',
-    'header_text':'#D8CEC5', 'header_bg':'#29241F', 'header_line':'#413932',
-    'tab_text':'#BDB2A9', 'tab_selected_bg':'#2E241F', 'check_line':'#655A51',
-    'scrollbar':'#62564D', 'scrollbar_hover':'#8B7568', 'icon':'#C9BDB4',
-    'canvas_0':'#171513', 'canvas_1':'#141210', 'canvas_2':'#11100E',
-    'route':'#6F4B3C', 'node':'#332822', 'avatar_bg':'#4A2D24',
-    'avatar_text':'#F3C0AA', 'avatar_line':'#704738', 'startup_bg':'#1D1A18',
-    'startup_line':'#3B342F', 'startup_signature':'#D59A80',
-    'tooltip_bg':'#F2EAE3', 'tooltip_text':'#211B18',
+    'ink':'#F5F3ED', 'muted':'#B9B5AA', 'accent':'#C9A85C', 'accent_hover':'#E0C478',
+    'accent_soft':'#342D1D', 'on_accent':'#11100D', 'green':'#91B39D', 'on_green':'#0D1510',
+    'line':'#34322D', 'surface':'#171715', 'glass':'#10100F', 'soft':'#22211E',
+    'danger':'#E58A82', 'profile_bg':'#1C1B18', 'profile_line':'#3D382B',
+    'control':'#20201D', 'control_hover':'#292822', 'control_pressed':'#312E24',
+    'disabled_text':'#77746C', 'disabled_bg':'#1B1B19', 'quiet_hover':'#2C281D',
+    'nav_text':'#D0CDC5', 'nav_hover':'#1D1D1A', 'nav_checked_text':'#FFF8E7',
+    'nav_checked_line':'#6E5D35', 'popup_alt':'#1C1C19', 'popup_line':'#49453A',
+    'table_alt':'#1C1C19', 'grid':'#302F2B', 'item_line':'#2A2925',
+    'header_text':'#DDD9CF', 'header_bg':'#20201C', 'header_line':'#3A3730',
+    'tab_text':'#BDB9AF', 'tab_selected_bg':'#292419', 'check_line':'#686257',
+    'scrollbar':'#5B584F', 'scrollbar_hover':'#8F835F', 'icon':'#D7D2C7',
+    'canvas_0':'#0D0D0C', 'canvas_1':'#090908', 'canvas_2':'#050505',
+    'route':'#76643A', 'node':'#D1B76F', 'avatar_bg':'#2E281A',
+    'avatar_text':'#E9D49B', 'avatar_line':'#75643C', 'startup_bg':'#0E0E0D',
+    'startup_line':'#343126', 'startup_signature':'#C9A85C',
+    'tooltip_bg':'#F5F3ED', 'tooltip_text':'#11110F',
 }
 
 COLORS = LIGHT_THEME.copy()
@@ -349,7 +349,7 @@ class AvatarWidget(QWidget):
 
 
 class ThemeSwitch(QWidget):
-    """Native PySide interpretation of the supplied sun/moon theme switch."""
+    """Interruptible sun/moon switch with layered sky-state transitions."""
 
     toggled = Signal(bool)
 
@@ -359,6 +359,8 @@ class ThemeSwitch(QWidget):
         self._progress = 1.0 if self._dark else 0.0
         self._compact = False
         self._animation = None
+        self._hovered = False
+        self._pressed = False
         self.setFixedSize(86, 38)
         self.setCursor(Qt.PointingHandCursor)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -372,7 +374,10 @@ class ThemeSwitch(QWidget):
         return self._progress
 
     def set_progress(self, value):
-        self._progress = max(0.0, min(1.0, float(value)))
+        # Preserve the easing overshoot while colors and opacity are clamped
+        # independently. A rapid reversal therefore continues from the exact
+        # on-screen position instead of jumping to the previous target.
+        self._progress = max(-0.08, min(1.08, float(value)))
         self.update()
 
     progress = Property(float, get_progress, set_progress)
@@ -400,15 +405,21 @@ class ThemeSwitch(QWidget):
         if self._animation:
             self._animation.stop()
         animation = QPropertyAnimation(self, b'progress', self)
-        animation.setDuration(260)
+        animation.setDuration(300)
         animation.setStartValue(self._progress)
         animation.setEndValue(target)
-        animation.setEasingCurve(QEasingCurve.OutCubic)
+        # Match the supplied control's authored curve: gentle pickup, a small
+        # late settle, and no hard early jump. QPropertyAnimation remains
+        # retargetable when the user toggles again mid-flight.
+        curve = QEasingCurve(QEasingCurve.BezierSpline)
+        curve.addCubicBezierSegment(QPointF(0.0, -0.02), QPointF(0.4, 1.25), QPointF(1.0, 1.0))
+        animation.setEasingCurve(curve)
         self._animation = animation
         animation.start()
 
     @staticmethod
     def _mix(first, second, amount):
+        amount = max(0.0, min(1.0, amount))
         a, b = QColor(first), QColor(second)
         return QColor(
             round(a.red() + (b.red() - a.red()) * amount),
@@ -416,16 +427,62 @@ class ThemeSwitch(QWidget):
             round(a.blue() + (b.blue() - a.blue()) * amount),
         )
 
+    @staticmethod
+    def _smoothstep(start, end, value):
+        if end <= start:
+            return 1.0 if value >= end else 0.0
+        value = max(0.0, min(1.0, (value-start)/(end-start)))
+        return value*value*(3.0-2.0*value)
+
+    @staticmethod
+    def _draw_sparkle(painter, center, radius, color):
+        path = QPainterPath(QPointF(center.x(), center.y()-radius))
+        path.cubicTo(center.x()+radius*.18, center.y()-radius*.18,
+                     center.x()+radius*.18, center.y()-radius*.18,
+                     center.x()+radius, center.y())
+        path.cubicTo(center.x()+radius*.18, center.y()+radius*.18,
+                     center.x()+radius*.18, center.y()+radius*.18,
+                     center.x(), center.y()+radius)
+        path.cubicTo(center.x()-radius*.18, center.y()+radius*.18,
+                     center.x()-radius*.18, center.y()+radius*.18,
+                     center.x()-radius, center.y())
+        path.cubicTo(center.x()-radius*.18, center.y()-radius*.18,
+                     center.x()-radius*.18, center.y()-radius*.18,
+                     center.x(), center.y()-radius)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(color)
+        painter.drawPath(path)
+
     def _toggle(self):
         self.set_dark(not self._dark, animate=True)
         self.toggled.emit(self._dark)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
+            self._pressed = True
             self._toggle()
             event.accept()
             return
         super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._pressed = False
+            self.update()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def enterEvent(self, event):
+        self._hovered = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self._pressed = False
+        self.update()
+        super().leaveEvent(event)
 
     def keyPressEvent(self, event):
         if event.key() in (Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter):
@@ -437,41 +494,87 @@ class ThemeSwitch(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         rect = QRectF(1.5, 1.5, self.width()-3, self.height()-3)
         radius = rect.height()/2
-        painter.setPen(QPen(self._mix('#86AFC8', '#504A55', self._progress), 1))
-        painter.setBrush(self._mix('#5D91B2', '#222129', self._progress))
+        state = max(0.0, min(1.0, self._progress))
+        cloud_exit = self._smoothstep(.04, .76, state)
+        star_enter = self._smoothstep(.20, .82, state)
+        moon_enter = self._smoothstep(.18, .88, state)
+        painter.setPen(QPen(self._mix('#C8B987', '#655838', state), 1))
+        painter.setBrush(self._mix('#E8DFC7', '#11110F', state))
         painter.drawRoundedRect(rect, radius, radius)
 
-        # Clouds recede as stars arrive. Both are deliberately quiet at the
-        # compact sidebar size so the control remains legible, not toy-like.
-        painter.save(); painter.setOpacity(1.0-self._progress)
-        painter.setPen(Qt.NoPen); painter.setBrush(QColor('#EAF5F6'))
-        base_y = rect.bottom()-5
-        for x, size in ((self.width()*.55, 7), (self.width()*.68, 9), (self.width()*.82, 6)):
-            painter.drawEllipse(QPointF(x, base_y), size, size*.62)
+        painter.save()
+        clip = QPainterPath(); clip.addRoundedRect(rect, radius, radius)
+        painter.setClipPath(clip)
+
+        # The cloud bank sinks away rather than merely fading. Two neutral
+        # tones keep depth without introducing a competing accent color.
+        painter.save()
+        painter.setOpacity(1.0-self._smoothstep(.34, .90, state))
+        painter.translate(0, rect.height()*1.55*cloud_exit)
+        base_y = rect.bottom()-2
+        for color, points in (
+            ('#CBBE9D', ((.48,7),(.61,9),(.76,7),(.90,10))),
+            ('#F9F6EC', ((.55,8),(.70,10),(.84,8),(.98,9))),
+        ):
+            painter.setPen(Qt.NoPen); painter.setBrush(QColor(color))
+            for x, size in points:
+                painter.drawEllipse(QPointF(rect.left()+rect.width()*x, base_y), size, size*.64)
         painter.restore()
-        painter.save(); painter.setOpacity(self._progress)
-        painter.setPen(Qt.NoPen); painter.setBrush(QColor('#F4EDE6'))
-        for x, y, size in ((.18,.34,1.5),(.30,.68,1.1),(.43,.26,1.2),(.55,.58,1.0)):
-            painter.drawEllipse(QPointF(rect.left()+rect.width()*x, rect.top()+rect.height()*y), size, size)
+
+        # Stars enter from above, matching the supplied reference rather than
+        # cross-fading in place.
+        painter.save()
+        painter.setOpacity(star_enter)
+        painter.translate(0, -rect.height()*(1.0-star_enter))
+        stars = ((.15,.34,2.2,'#F6F2E8'),(.29,.68,1.5,'#C9A85C'),
+                 (.42,.24,1.7,'#F6F2E8'),(.55,.57,1.3,'#DCC47F'))
+        for x, y, size, color in stars:
+            self._draw_sparkle(
+                painter,
+                QPointF(rect.left()+rect.width()*x, rect.top()+rect.height()*y),
+                size if not self._compact else size*.78,
+                QColor(color),
+            )
         painter.restore()
 
         diameter = rect.height()-8
         travel = rect.width()-diameter-8
-        cx = rect.left()+4+diameter/2+travel*self._progress
+        thumb_progress = max(-.05, min(1.05, self._progress))
+        hover_nudge = 0.0
+        if self._hovered and not self._pressed:
+            hover_nudge = 1.8 if state < .5 else -1.8
+        cx = rect.left()+4+diameter/2+travel*thumb_progress+hover_nudge
         cy = rect.center().y()
-        for extra, alpha in ((8, 28), (4, 38)):
-            halo = QColor('#FFFFFF'); halo.setAlpha(alpha)
+        thumb_radius = diameter/2*(.96 if self._pressed else 1.0)
+        for extra, alpha in ((12, 14), (8, 22), (4, 32)):
+            halo = self._mix('#FFFFFF', '#D8BC72', state); halo.setAlpha(alpha)
             painter.setBrush(halo); painter.setPen(Qt.NoPen)
-            painter.drawEllipse(QPointF(cx, cy), diameter/2+extra, diameter/2+extra)
-        painter.setBrush(self._mix('#F1C75B', '#D3D5D9', self._progress))
-        painter.setPen(QPen(self._mix('#C69B35', '#9298A2', self._progress), 1))
-        painter.drawEllipse(QPointF(cx, cy), diameter/2, diameter/2)
-        if self._progress > .05:
-            painter.save(); painter.setOpacity(self._progress)
-            painter.setPen(Qt.NoPen); painter.setBrush(QColor('#9AA1AD'))
-            for dx, dy, size in ((-.18,-.16,.14),(.20,.12,.10),(-.05,.23,.08)):
-                painter.drawEllipse(QPointF(cx+diameter*dx, cy+diameter*dy), diameter*size, diameter*size)
-            painter.restore()
+            painter.drawEllipse(QPointF(cx, cy), thumb_radius+extra, thumb_radius+extra)
+
+        # The moon slides across inside the sun disc, preserving the reference
+        # component's most distinctive state transition.
+        painter.setBrush(QColor('#E2BB55'))
+        painter.setPen(QPen(QColor('#A98332'), 1))
+        painter.drawEllipse(QPointF(cx, cy), thumb_radius, thumb_radius)
+        painter.save()
+        thumb_clip = QPainterPath(); thumb_clip.addEllipse(QPointF(cx, cy), thumb_radius, thumb_radius)
+        painter.setClipPath(thumb_clip, Qt.IntersectClip)
+        moon_cx = cx+diameter*(1.0-moon_enter)
+        painter.setOpacity(self._smoothstep(.10, .74, state))
+        painter.setPen(QPen(QColor('#BDB7A8'), 1))
+        painter.setBrush(QColor('#F1EEE6'))
+        painter.drawEllipse(QPointF(moon_cx, cy), thumb_radius, thumb_radius)
+        painter.setPen(Qt.NoPen); painter.setBrush(QColor('#A79F8E'))
+        for dx, dy, size in ((-.18,-.16,.14),(.20,.12,.10),(-.05,.23,.08)):
+            painter.drawEllipse(QPointF(moon_cx+diameter*dx, cy+diameter*dy), diameter*size, diameter*size)
+        painter.restore()
+        painter.restore()
+
+        # A restrained inner highlight makes the track feel inset without a
+        # glow; it reads as a material edge instead of decoration.
+        top_edge = QColor('#FFFFFF'); top_edge.setAlpha(round(42*(1.0-state)+18*state))
+        painter.setBrush(Qt.NoBrush); painter.setPen(QPen(top_edge, 1))
+        painter.drawRoundedRect(rect.adjusted(1,1,-1,-1), radius-1, radius-1)
         if self.hasFocus():
             painter.setBrush(Qt.NoBrush); painter.setPen(QPen(QColor(COLORS['accent']), 2))
             painter.drawRoundedRect(rect.adjusted(-1,-1,1,1), radius, radius)
@@ -777,6 +880,8 @@ class MainWindow(QMainWindow):
         self._gmail_sync_silent = False
         self._gmail_sync_cancel = threading.Event()
         self._filter_widgets = []
+        self._theme_transition_serial = 0
+        self._theme_fade_animation = None
         self._build_ui()
         self.setStyleSheet(build_app_qss())
         self.task_ok.connect(self._task_complete)
@@ -1173,7 +1278,53 @@ class MainWindow(QMainWindow):
         self.pages.setCurrentIndexAnimated(index)
 
     def _theme_toggled(self, dark):
-        self.current_theme = 'dark' if dark else 'light'
+        target_theme = 'dark' if dark else 'light'
+        self._theme_transition_serial += 1
+        serial = self._theme_transition_serial
+        if reduce_motion_enabled():
+            self._commit_theme(target_theme)
+            return
+
+        root = self.centralWidget()
+        effect = root.graphicsEffect()
+        if not isinstance(effect, QGraphicsOpacityEffect):
+            effect = QGraphicsOpacityEffect(root)
+            effect.setOpacity(1.0)
+            root.setGraphicsEffect(effect)
+        if self._theme_fade_animation:
+            self._theme_fade_animation.stop()
+        fade_out = QPropertyAnimation(effect, b'opacity', self)
+        fade_out.setDuration(90)
+        fade_out.setStartValue(effect.opacity())
+        fade_out.setEndValue(.84)
+        fade_out.setEasingCurve(QEasingCurve.OutCubic)
+        fade_out.finished.connect(
+            lambda: self._finish_theme_transition(serial, target_theme, effect)
+        )
+        self._theme_fade_animation = fade_out
+        fade_out.start()
+
+    def _finish_theme_transition(self, serial, target_theme, effect):
+        if serial != self._theme_transition_serial:
+            return
+        self._commit_theme(target_theme)
+        fade_in = QPropertyAnimation(effect, b'opacity', self)
+        fade_in.setDuration(160)
+        fade_in.setStartValue(effect.opacity())
+        fade_in.setEndValue(1.0)
+        fade_in.setEasingCurve(QEasingCurve.OutCubic)
+        fade_in.finished.connect(
+            lambda: self._clear_theme_effect(serial, effect)
+        )
+        self._theme_fade_animation = fade_in
+        fade_in.start()
+
+    def _clear_theme_effect(self, serial, effect):
+        if serial == self._theme_transition_serial and self.centralWidget().graphicsEffect() is effect:
+            self.centralWidget().setGraphicsEffect(None)
+
+    def _commit_theme(self, target_theme):
+        self.current_theme = target_theme
         set_active_theme(self.current_theme)
         if QApplication.instance():
             apply_application_palette(QApplication.instance())

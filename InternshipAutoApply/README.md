@@ -8,7 +8,7 @@
 
 The new interface reads the same local database and settings as the existing application. Sent application state roams through the signed-in Gmail account using the private `Cisty/Applications` label. Sync runs only when the user clicks **Sync Gmail** and does not query/expose unrelated inbox, sent messages, or Gmail drafts.
 
-The sidebar sun/moon control switches between the warm light theme and a composed warm-charcoal dark theme. The preference is saved locally, survives restart, adapts to compact navigation, respects reduced-motion settings, and updates the native Windows title bar.
+The sidebar sun/moon control switches between the warm light theme and a composed black, white, and champagne-gold dark theme. Its layered cloud, star, and sliding-moon transition remains interruptible, while the workspace cross-fades to avoid an abrupt brightness jump. The preference is saved locally, survives restart, adapts to compact navigation, respects reduced-motion settings, and updates the native Windows title bar.
 
 ## Existing interface
 

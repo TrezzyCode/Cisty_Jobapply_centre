@@ -56,11 +56,11 @@ Never commit:
 - Gmail draft, reviewed send, tracked-thread refresh, and reply are implemented.
 - Gmail roaming sync is implemented for school/home/new-PC use as an explicit, cancellable **Sync Gmail** action. It restores Applied/Replied state, timestamps, and tracked conversations. It has a 20-second request timeout, reports progress, does not scan drafts, and checks the connected account against My Workspace. Do not reintroduce startup or periodic full-mailbox work.
 - `run_glass_ui.bat` resolves and launches `pythonw.exe` so a selected/QuickEdit console cannot suspend the GUI. `QLockFile` prevents concurrent instances, and unhandled GUI exceptions are appended to `%LOCALAPPDATA%\IT Internship Auto Apply\cisty_error.log`.
-- Light/dark appearance is tokenized in `LIGHT_THEME` / `DARK_THEME`. The custom `ThemeSwitch` is a native PySide interpretation of the supplied cloud/sun/moon/stars control, persists `settings.json` → `theme`, respects reduced motion, compacts with the sidebar, and updates the Windows immersive title bar. Keep future colors semantic rather than adding component-local hex values.
+- Light/dark appearance is tokenized in `LIGHT_THEME` / `DARK_THEME`. Dark mode uses near-black surfaces, bone-white type, and restrained champagne-gold action/selection accents. The custom `ThemeSwitch` preserves the supplied control's layered cloud exit, star entrance, sliding moon, halo depth, hover nudge, and interruptible reversal; the workspace cross-fades at the state boundary. It persists `settings.json` → `theme`, respects reduced motion, compacts with the sidebar, and updates the Windows immersive title bar. Keep future colors semantic rather than adding component-local hex values.
 - My Workspace is embedded in the main window.
 - The profile avatar can be selected or removed in My Workspace. The sidebar uses the same photo and falls back to the user's initials.
 - The approved Cisty squircle-C mark is used by the startup reveal, window icon, and EXE packaging. The electric outline plays once and respects Windows reduced-motion settings.
-- The current UI uses a warm Claude-like palette with restrained Apple-style depth and motion. Avoid excessive glass blur, gradients, glows, tilt effects, or decorative animation.
+- The light UI uses a warm Claude-like palette; dark mode is a deliberate black, bone-white, and champagne-gold composition. Both use restrained Apple-style depth and motion. Avoid excessive glass blur, gradients, glows, tilt effects, or decorative animation.
 
 ## Station-distance rules
 
