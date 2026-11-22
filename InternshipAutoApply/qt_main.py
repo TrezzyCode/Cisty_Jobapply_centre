@@ -19,19 +19,20 @@ from urllib.request import Request, urlopen
 
 from PySide6.QtCore import (
     Qt, Signal, Property, QTimer, QEasingCurve, QPropertyAnimation, QRectF, QPointF,
-    QLockFile, QSize
+    QLockFile, QSize, QPoint, QParallelAnimationGroup, QAbstractAnimation
 )
 from PySide6.QtGui import (
     QColor, QPainter, QLinearGradient, QIcon, QPixmap, QPen, QPalette,
-    QPainterPath, QTransform
+    QPainterPath, QTransform, QRadialGradient, QBrush
 )
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton,
+    QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton as QtPushButton,
     QVBoxLayout, QHBoxLayout, QGridLayout, QStackedWidget, QLineEdit,
     QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QSplitter,
-    QTabWidget, QPlainTextEdit, QCheckBox, QFileDialog, QMessageBox,
+    QTabWidget as QtTabWidget, QTabBar, QPlainTextEdit, QCheckBox, QFileDialog, QMessageBox,
     QScrollArea, QFormLayout, QButtonGroup, QSizePolicy,
-    QGraphicsOpacityEffect, QAbstractItemView
+    QGraphicsOpacityEffect, QAbstractItemView, QStylePainter, QStyleOptionButton,
+    QStyle
 )
 
 from main import (
@@ -86,6 +87,11 @@ COLORS = LIGHT_THEME.copy()
 def set_active_theme(theme):
     COLORS.clear()
     COLORS.update(DARK_THEME if theme == 'dark' else LIGHT_THEME)
+
+
+def css_rgba(color, alpha):
+    value = QColor(color)
+    return f'rgba({value.red()}, {value.green()}, {value.blue()}, {alpha})'
 
 
 def apply_application_palette(application):
@@ -163,11 +169,10 @@ def build_app_qss():
 * {{ font-family: "Segoe UI Variable Text", "Segoe UI"; font-size: 13px; color: {COLORS['ink']}; }}
 QWidget#root {{ background: transparent; }}
 QFrame#glass, QFrame#surface {{
-    border: 1px solid {COLORS['line']}; border-radius: 18px;
-    background: {COLORS['glass']};
+    border: none; border-radius: 18px; background: transparent;
 }}
-QFrame#surface {{ background: {COLORS['surface']}; border-color: {COLORS['line']}; }}
-QFrame#profileCard {{ background: {COLORS['profile_bg']}; border: 1px solid {COLORS['profile_line']}; border-radius: 16px; }}
+QFrame#surface {{ background: transparent; }}
+QFrame#profileCard {{ background: transparent; border: none; border-radius: 16px; }}
 QLabel#title {{ font-size: 26px; font-weight: 600; }}
 QLabel#pageTitle {{ font-size: 23px; font-weight: 600; }}
 QLabel#sectionTitle {{ font-size: 18px; font-weight: 600; }}
@@ -177,14 +182,14 @@ QLabel#success {{ color: {COLORS['green']}; font-weight: 600; }}
 QLabel#profileName {{ font-size: 18px; font-weight: 600; color: {COLORS['ink']}; }}
 QPushButton {{
     min-height: 36px; padding: 0 14px; border-radius: 10px;
-    border: 1px solid {COLORS['line']}; background: {COLORS['control']};
+    border: 1px solid {css_rgba(COLORS['line'], 188)}; background: {css_rgba(COLORS['control'], 208)};
     font-weight: 500;
 }}
-QPushButton:hover {{ background: {COLORS['control_hover']}; border-color: {COLORS['scrollbar_hover']}; }}
-QPushButton:pressed {{ background: {COLORS['control_pressed']}; padding-top: 2px; }}
+QPushButton:hover {{ border-color: {css_rgba(COLORS['scrollbar_hover'], 214)}; }}
+QPushButton:pressed {{ background: {css_rgba(COLORS['control_pressed'], 216)}; }}
 QPushButton:disabled {{ color: {COLORS['disabled_text']}; background: {COLORS['disabled_bg']}; }}
 QPushButton#primary {{ color: {COLORS['on_accent']}; background: {COLORS['accent']}; border: none; min-height: 40px; }}
-QPushButton#primary:hover {{ background: {COLORS['accent_hover']}; }}
+QPushButton#primary:hover {{ background: {COLORS['accent']}; }}
 QPushButton#successButton {{ color: {COLORS['on_green']}; background: {COLORS['green']}; border: none; min-height: 38px; }}
 QPushButton#quiet {{ color: {COLORS['accent_hover']}; background: transparent; border: none; padding: 0 8px; }}
 QPushButton#quiet:hover {{ background: {COLORS['quiet_hover']}; }}
@@ -192,10 +197,10 @@ QPushButton#nav {{
     min-height: 42px; text-align: left; padding-left: 13px; border: none;
     background: transparent; color: {COLORS['nav_text']}; font-weight: 500;
 }}
-QPushButton#nav:hover {{ background: {COLORS['nav_hover']}; }}
+QPushButton#nav:hover {{ background: transparent; }}
 QPushButton#nav:checked {{ color: {COLORS['nav_checked_text']}; background: {COLORS['accent_soft']}; border: 1px solid {COLORS['nav_checked_line']}; }}
 QLineEdit, QComboBox, QPlainTextEdit {{
-    color: {COLORS['ink']}; background: {COLORS['control']}; border: 1px solid {COLORS['line']};
+    color: {COLORS['ink']}; background: {css_rgba(COLORS['control'], 218)}; border: 1px solid {css_rgba(COLORS['line'], 196)};
     border-radius: 9px; padding: 7px; selection-background-color: {COLORS['accent_soft']};
     selection-color: {COLORS['ink']};
 }}
@@ -203,28 +208,28 @@ QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus {{ border: 2px solid {COL
 QComboBox {{ min-height: 34px; padding-right: 26px; }}
 QComboBox::drop-down {{ border: none; width: 26px; }}
 QComboBox QAbstractItemView {{
-    color: {COLORS['ink']}; background: {COLORS['control']}; alternate-background-color: {COLORS['popup_alt']};
+    color: {COLORS['ink']}; background: {css_rgba(COLORS['control'], 244)}; alternate-background-color: {COLORS['popup_alt']};
     border: 1px solid {COLORS['popup_line']}; border-radius: 10px; padding: 6px;
     selection-background-color: {COLORS['accent_soft']}; selection-color: {COLORS['ink']};
     outline: 0; min-width: 180px;
 }}
 QComboBox QAbstractItemView::item {{ min-height: 32px; padding: 3px 9px; }}
 QTableWidget {{
-    color: {COLORS['ink']}; background: {COLORS['surface']}; alternate-background-color: {COLORS['table_alt']};
+    color: {COLORS['ink']}; background: {css_rgba(COLORS['surface'], 202)}; alternate-background-color: {css_rgba(COLORS['table_alt'], 218)};
     border: 1px solid {COLORS['line']}; border-radius: 12px; gridline-color: {COLORS['grid']};
     outline: 0;
 }}
 QTableWidget::item {{ padding: 8px; border-bottom: 1px solid {COLORS['item_line']}; }}
 QTableWidget::item:selected {{ color: {COLORS['ink']}; background: {COLORS['accent_soft']}; }}
 QHeaderView::section {{
-    color: {COLORS['header_text']}; background: {COLORS['header_bg']}; border: none; border-right: 1px solid {COLORS['header_line']};
+    color: {COLORS['header_text']}; background: {css_rgba(COLORS['header_bg'], 226)}; border: none; border-right: 1px solid {COLORS['header_line']};
     border-bottom: 1px solid {COLORS['header_line']}; padding: 10px 8px; font-weight: 600;
 }}
-QTabWidget::pane {{ color: {COLORS['ink']}; border: 1px solid {COLORS['line']}; border-radius: 12px; background: {COLORS['surface']}; top: -1px; }}
+QTabWidget::pane {{ color: {COLORS['ink']}; border: 1px solid {css_rgba(COLORS['line'], 144)}; border-radius: 12px; background: transparent; top: -1px; }}
 QTabBar::tab {{ color: {COLORS['tab_text']}; min-height: 36px; min-width: 84px; padding: 0 10px; background: transparent; font-weight: 500; }}
-QTabBar::tab:selected {{ color: {COLORS['accent_hover']}; border-bottom: 2px solid {COLORS['accent']}; background: {COLORS['tab_selected_bg']}; }}
-QScrollArea {{ border: none; background: {COLORS['surface']}; }}
-QScrollArea > QWidget > QWidget, QWidget#panelBody {{ color: {COLORS['ink']}; background: {COLORS['surface']}; }}
+QTabBar::tab:selected {{ color: {COLORS['accent_hover']}; background: transparent; }}
+QScrollArea {{ border: none; background: transparent; }}
+QScrollArea > QWidget > QWidget, QWidget#panelBody {{ color: {COLORS['ink']}; background: transparent; }}
 QCheckBox {{ color: {COLORS['ink']}; spacing: 8px; }}
 QCheckBox::indicator {{ width: 17px; height: 17px; border: 1px solid {COLORS['check_line']}; border-radius: 5px; background: {COLORS['control']}; }}
 QCheckBox::indicator:checked {{ background: {COLORS['accent']}; border-color: {COLORS['accent']}; }}
@@ -287,6 +292,246 @@ def line_icon(kind, color=None):
         painter.drawLine(QPointF(15.5, 10.5), QPointF(12, 14))
     painter.end()
     return QIcon(pixmap)
+
+
+class QPushButton(QtPushButton):
+    """A Qt-native pressable surface with interruptible iOS-style feedback."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._hover_progress = 0.0
+        self._press_progress = 0.0
+        self._hover_animation = None
+        self._press_animation = None
+        self._reduced_motion = reduce_motion_enabled()
+        self.setAttribute(Qt.WA_Hover, True)
+        self.pressed.connect(self._press_in)
+        self.released.connect(self._press_out)
+
+    def get_hover_progress(self):
+        return self._hover_progress
+
+    def set_hover_progress(self, value):
+        self._hover_progress = max(0.0, min(1.0, float(value)))
+        self.update()
+
+    hoverProgress = Property(float, get_hover_progress, set_hover_progress)
+
+    def get_press_progress(self):
+        return self._press_progress
+
+    def set_press_progress(self, value):
+        self._press_progress = max(0.0, min(1.0, float(value)))
+        self.update()
+
+    pressProgress = Property(float, get_press_progress, set_press_progress)
+
+    def _animate(self, attribute, start, end, duration):
+        animation = QPropertyAnimation(self, attribute, self)
+        animation.setDuration(duration)
+        animation.setStartValue(start)
+        animation.setEndValue(end)
+        animation.setEasingCurve(QEasingCurve.OutCubic)
+        animation.start()
+        return animation
+
+    def _press_in(self):
+        if self._press_animation:
+            self._press_animation.stop()
+        self.set_press_progress(1.0)
+
+    def _press_out(self):
+        if self._press_animation:
+            self._press_animation.stop()
+        if self._reduced_motion:
+            self.set_press_progress(0.0)
+            return
+        self._press_animation = self._animate(b'pressProgress', self._press_progress, 0.0, 160)
+
+    def enterEvent(self, event):
+        if self._hover_animation:
+            self._hover_animation.stop()
+        self._hover_animation = self._animate(b'hoverProgress', self._hover_progress, 1.0, 160)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        if self._hover_animation:
+            self._hover_animation.stop()
+        self._hover_animation = self._animate(b'hoverProgress', self._hover_progress, 0.0, 140)
+        super().leaveEvent(event)
+
+    def paintEvent(self, event):
+        painter = QStylePainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        scale = 1.0 if self._reduced_motion else 1.0-.025*self._press_progress
+        center = self.rect().center()
+        painter.translate(center)
+        painter.scale(scale, scale)
+        painter.translate(-center)
+        painter.drawControl(QStyle.CE_PushButton, option)
+
+        surface = QRectF(self.rect()).adjusted(.75, .75, -.75, -.75)
+        radius = min(11.0, surface.height()/2)
+        clip = QPainterPath(); clip.addRoundedRect(surface, radius, radius)
+        painter.setClipPath(clip)
+        if self._hover_progress > .001 and self.isEnabled():
+            sheen = QLinearGradient(surface.topLeft(), surface.bottomLeft())
+            top = QColor('#FFFFFF'); top.setAlpha(round(24*self._hover_progress))
+            bottom = QColor('#FFFFFF'); bottom.setAlpha(round(5*self._hover_progress))
+            sheen.setColorAt(0, top); sheen.setColorAt(1, bottom)
+            painter.fillPath(clip, sheen)
+        if self._press_progress > .001 and self.isEnabled():
+            pressed = QColor('#000000' if QColor(COLORS['canvas_1']).lightness() > 128 else '#FFFFFF')
+            pressed.setAlpha(round(18*self._press_progress))
+            painter.fillPath(clip, pressed)
+            edge = QColor('#FFFFFF'); edge.setAlpha(round(34*self._press_progress))
+            painter.setBrush(Qt.NoBrush); painter.setPen(QPen(edge, 1))
+            inset = 1.5+self._press_progress
+            painter.drawRoundedRect(surface.adjusted(inset,inset,-inset,-inset), radius-inset, radius-inset)
+
+
+class FluidTabBar(QTabBar):
+    """A moving glass selection lens keeps tab state spatially continuous."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._indicator_x = -1.0
+        self._indicator_width = 0.0
+        self._x_animation = None
+        self._width_animation = None
+        self.currentChanged.connect(self._move_indicator)
+
+    def get_indicator_x(self):
+        return self._indicator_x
+
+    def set_indicator_x(self, value):
+        self._indicator_x = float(value); self.update()
+
+    indicatorX = Property(float, get_indicator_x, set_indicator_x)
+
+    def get_indicator_width(self):
+        return self._indicator_width
+
+    def set_indicator_width(self, value):
+        self._indicator_width = max(0.0, float(value)); self.update()
+
+    indicatorWidth = Property(float, get_indicator_width, set_indicator_width)
+
+    def _sync_indicator(self):
+        if self.currentIndex() < 0:
+            return
+        target = self.tabRect(self.currentIndex())
+        self.set_indicator_x(target.x())
+        self.set_indicator_width(target.width())
+
+    def _move_indicator(self, index):
+        if index < 0 or not self.isVisible() or reduce_motion_enabled():
+            self._sync_indicator()
+            return
+        target = self.tabRect(index)
+        if self._indicator_x < 0:
+            self._sync_indicator()
+            return
+        for animation in (self._x_animation, self._width_animation):
+            if animation:
+                animation.stop()
+        curve = QEasingCurve(QEasingCurve.BezierSpline)
+        curve.addCubicBezierSegment(QPointF(.77, 0), QPointF(.175, 1), QPointF(1, 1))
+        self._x_animation = QPropertyAnimation(self, b'indicatorX', self)
+        self._x_animation.setDuration(250)
+        self._x_animation.setStartValue(self._indicator_x)
+        self._x_animation.setEndValue(float(target.x()))
+        self._x_animation.setEasingCurve(curve)
+        self._width_animation = QPropertyAnimation(self, b'indicatorWidth', self)
+        self._width_animation.setDuration(250)
+        self._width_animation.setStartValue(self._indicator_width)
+        self._width_animation.setEndValue(float(target.width()))
+        self._width_animation.setEasingCurve(curve)
+        self._x_animation.start(); self._width_animation.start()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._sync_indicator()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if not (self._x_animation and self._x_animation.state() == QAbstractAnimation.Running):
+            self._sync_indicator()
+
+    def paintEvent(self, event):
+        if self._indicator_x >= 0 and self._indicator_width > 0:
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+            lens = QRectF(self._indicator_x+4, 3, self._indicator_width-8, self.height()-7)
+            fill = QColor(COLORS['accent_soft']); fill.setAlpha(168)
+            painter.setPen(Qt.NoPen); painter.setBrush(fill)
+            painter.drawRoundedRect(lens, 10, 10)
+            highlight = QColor('#FFFFFF'); highlight.setAlpha(34)
+            painter.setBrush(Qt.NoBrush); painter.setPen(QPen(highlight, 1))
+            painter.drawRoundedRect(lens.adjusted(.5,.5,-.5,-.5), 9.5, 9.5)
+            painter.end()
+        super().paintEvent(event)
+        if self._indicator_x >= 0 and self._indicator_width > 0:
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setPen(Qt.NoPen); painter.setBrush(QColor(COLORS['accent']))
+            painter.drawRoundedRect(QRectF(self._indicator_x+12, self.height()-3, self._indicator_width-24, 2), 1, 1)
+            painter.end()
+
+
+class QTabWidget(QtTabWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTabBar(FluidTabBar(self))
+
+
+class GlassFrame(QFrame):
+    """Theme-aware frosted material rendered natively by Qt."""
+
+    def __init__(self, material='glass', parent=None):
+        super().__init__(parent)
+        self._material = material
+        self.setObjectName(material)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        rect = QRectF(self.rect()).adjusted(.75, .75, -.75, -.75)
+        radius = 16 if self._material == 'profileCard' else 18
+        path = QPainterPath(); path.addRoundedRect(rect, radius, radius)
+        dark = QColor(COLORS['canvas_1']).lightness() < 128
+        token = 'surface' if self._material == 'surface' else ('profile_bg' if self._material == 'profileCard' else 'glass')
+        base = QColor(COLORS[token])
+        top = base.lighter(132 if dark else 106)
+        bottom = base.darker(108 if dark else 102)
+        base.setAlpha(188 if dark else 210)
+        top.setAlpha(202 if dark else 220)
+        bottom.setAlpha(174 if dark else 198)
+        material = QLinearGradient(rect.topLeft(), rect.bottomRight())
+        material.setColorAt(0, top); material.setColorAt(.58, base); material.setColorAt(1, bottom)
+        painter.fillPath(path, material)
+
+        border = QLinearGradient(rect.topLeft(), rect.bottomRight())
+        bright = QColor('#FFFFFF'); bright.setAlpha(82 if dark else 156)
+        quiet = QColor(COLORS['line']); quiet.setAlpha(104 if dark else 144)
+        border.setColorAt(0, bright); border.setColorAt(.42, quiet); border.setColorAt(1, quiet)
+        painter.setBrush(Qt.NoBrush); painter.setPen(QPen(QBrush(border), 1))
+        painter.drawPath(path)
+
+        # A short specular edge gives the material a light source without
+        # turning every panel into a glowing card.
+        specular = QPainterPath(QPointF(rect.left()+radius, rect.top()+1))
+        specular.cubicTo(rect.left()+rect.width()*.30, rect.top()-.2,
+                         rect.left()+rect.width()*.50, rect.top()+.2,
+                         rect.left()+rect.width()*.62, rect.top()+1)
+        shine = QColor('#FFFFFF'); shine.setAlpha(72 if dark else 118)
+        painter.setPen(QPen(shine, 1.1, Qt.SolidLine, Qt.RoundCap))
+        painter.drawPath(specular)
+        painter.end()
+        super().paintEvent(event)
 
 
 class AvatarWidget(QWidget):
@@ -607,6 +852,21 @@ class Backdrop(QWidget):
         gradient.setColorAt(.52, QColor(COLORS['canvas_1']))
         gradient.setColorAt(1, QColor(COLORS['canvas_2']))
         painter.fillRect(self.rect(), gradient)
+
+        # Glass only reads as glass when the scene behind it carries depth.
+        # These low-chroma light fields stay fixed, so they add material
+        # information without becoming a moving decorative background.
+        dark = QColor(COLORS['canvas_1']).lightness() < 128
+        for cx, cy, radius, color, alpha in (
+            (.86, .10, .44, COLORS['accent'], 48 if dark else 30),
+            (.16, .82, .50, '#FFFFFF', 22 if dark else 76),
+            (.58, .58, .42, COLORS['route'], 18 if dark else 24),
+        ):
+            glow = QRadialGradient(self.width()*cx, self.height()*cy, max(self.width(), self.height())*radius)
+            core = QColor(color); core.setAlpha(alpha)
+            edge = QColor(color); edge.setAlpha(0)
+            glow.setColorAt(0, core); glow.setColorAt(.56, QColor(core.red(),core.green(),core.blue(),round(alpha*.36))); glow.setColorAt(1, edge)
+            painter.fillRect(self.rect(), QBrush(glow))
         route_color = QColor(COLORS['route']); route_color.setAlpha(32)
         painter.setPen(QPen(route_color, 2.0, Qt.SolidLine, Qt.RoundCap))
         route = QPainterPath(QPointF(-30, self.height() * .72))
@@ -617,6 +877,7 @@ class Backdrop(QWidget):
             node_color = QColor(COLORS['node']); node_color.setAlpha(210)
             painter.setBrush(node_color)
             painter.drawEllipse(QPointF(self.width()*x, self.height()*y), 5, 5)
+        painter.end()
         super().paintEvent(event)
 
 
@@ -841,21 +1102,55 @@ class StartupWindow(QWidget):
 
 
 class AnimatedStack(QStackedWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._animation = None
+        self._active_page = None
+        self._active_target = None
+
     def setCurrentIndexAnimated(self, index):
         if index == self.currentIndex():
             return
+        previous = self.currentIndex()
+        if self._animation:
+            self._animation.stop()
+        if self._active_page is not None:
+            self._active_page.setGraphicsEffect(None)
+            if self._active_target is not None:
+                self._active_page.move(self._active_target)
         self.setCurrentIndex(index)
         page = self.currentWidget()
         effect = QGraphicsOpacityEffect(page)
         page.setGraphicsEffect(effect)
-        animation = QPropertyAnimation(effect, b'opacity', self)
-        animation.setDuration(180 if reduce_motion_enabled() else 240)
-        animation.setStartValue(0.0)
-        animation.setEndValue(1.0)
-        animation.setEasingCurve(QEasingCurve.OutCubic)
-        animation.finished.connect(lambda: page.setGraphicsEffect(None))
-        self._animation = animation
-        animation.start()
+        target = page.pos()
+        fade = QPropertyAnimation(effect, b'opacity', self)
+        fade.setDuration(180 if reduce_motion_enabled() else 240)
+        fade.setStartValue(.72 if reduce_motion_enabled() else .48)
+        fade.setEndValue(1.0)
+        fade.setEasingCurve(QEasingCurve.OutCubic)
+        group = QParallelAnimationGroup(self)
+        group.addAnimation(fade)
+        if not reduce_motion_enabled():
+            direction = 1 if index > previous else -1
+            page.move(target+QPoint(14*direction, 0))
+            slide = QPropertyAnimation(page, b'pos', self)
+            slide.setDuration(240)
+            slide.setStartValue(page.pos())
+            slide.setEndValue(target)
+            slide.setEasingCurve(QEasingCurve.OutCubic)
+            group.addAnimation(slide)
+        self._active_page = page
+        self._active_target = target
+        group.finished.connect(lambda: self._finish_transition(page, target))
+        self._animation = group
+        group.start()
+
+    def _finish_transition(self, page, target):
+        page.move(target)
+        page.setGraphicsEffect(None)
+        if self._active_page is page:
+            self._active_page = None
+            self._active_target = None
 
 
 class MainWindow(QMainWindow):
@@ -895,9 +1190,7 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(100, lambda: self.switch_page(2))
 
     def _glass(self, name='glass'):
-        frame = QFrame()
-        frame.setObjectName(name)
-        return frame
+        return GlassFrame(name)
 
     def _build_ui(self):
         root = Backdrop()
@@ -1192,7 +1485,7 @@ class MainWindow(QMainWindow):
         scroll.verticalScrollBar().setSingleStep(28)
         card = self._glass(); content = QVBoxLayout(card); content.setContentsMargins(22,18,22,18)
 
-        profile_card = QFrame(); profile_card.setObjectName('profileCard')
+        profile_card = GlassFrame('profileCard')
         profile_layout = QHBoxLayout(profile_card); profile_layout.setContentsMargins(18,16,18,16); profile_layout.setSpacing(16)
         self.workspace_avatar = AvatarWidget(
             84,
@@ -1351,6 +1644,17 @@ class MainWindow(QMainWindow):
                 )
                 if result == 0:
                     break
+            # Windows 11 uses the native system backdrop and rounded-window
+            # treatment behind Cisty's Qt-rendered glass hierarchy. Older
+            # Windows versions simply ignore these attributes.
+            backdrop = ctypes.c_int(2)  # DWMSBT_MAINWINDOW (Mica)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, 38, ctypes.byref(backdrop), ctypes.sizeof(backdrop)
+            )
+            corners = ctypes.c_int(2)  # DWMWCP_ROUND
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, 33, ctypes.byref(corners), ctypes.sizeof(corners)
+            )
         except Exception:
             pass
 

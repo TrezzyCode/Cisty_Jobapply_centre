@@ -8,7 +8,7 @@
 
 The new interface reads the same local database and settings as the existing application. Sent application state roams through the signed-in Gmail account using the private `Cisty/Applications` label. Sync runs only when the user clicks **Sync Gmail** and does not query/expose unrelated inbox, sent messages, or Gmail drafts.
 
-The sidebar sun/moon control switches between the warm light theme and a composed black, white, and champagne-gold dark theme. Its layered cloud, star, and sliding-moon transition remains interruptible, while the workspace cross-fades to avoid an abrupt brightness jump. The preference is saved locally, survives restart, adapts to compact navigation, respects reduced-motion settings, and updates the native Windows title bar.
+The interface uses Qt-native frosted materials over a restrained background light field, with specular glass edges, translucent controls, a moving tab lens, physical button feedback, and short directional page transitions. Windows 11 also receives the native Mica backdrop and rounded-window treatment. The sidebar sun/moon control switches between the warm light theme and a composed black, white, and champagne-gold dark theme. Motion remains interruptible, respects reduced-motion settings, and the saved preference survives restart.
 
 ## Existing interface
 
