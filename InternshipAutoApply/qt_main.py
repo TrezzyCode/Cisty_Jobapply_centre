@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, QSplitter,
     QTabWidget, QPlainTextEdit, QCheckBox, QFileDialog, QMessageBox,
     QScrollArea, QFormLayout, QButtonGroup, QSizePolicy,
-    QGraphicsOpacityEffect
+    QGraphicsOpacityEffect, QAbstractItemView
 )
 
 from main import (
@@ -108,8 +108,34 @@ QScrollArea > QWidget > QWidget, QWidget#panelBody {{ color: {COLORS['ink']}; ba
 QCheckBox {{ color: {COLORS['ink']}; spacing: 8px; }}
 QCheckBox::indicator {{ width: 17px; height: 17px; border: 1px solid #BFB3A8; border-radius: 5px; background: #FFFDF9; }}
 QCheckBox::indicator:checked {{ background: {COLORS['accent']}; border-color: {COLORS['accent']}; }}
-QScrollBar:vertical {{ width: 11px; background: transparent; margin: 3px; }}
-QScrollBar::handle:vertical {{ min-height: 28px; border-radius: 4px; background: #BEB2A7; }}
+QScrollBar:vertical {{
+    width: 14px; margin: 4px 2px; border: none; background: transparent;
+}}
+QScrollBar::handle:vertical {{
+    min-height: 48px; margin: 0 2px; border: none; border-radius: 5px;
+    background: #C7B9AD;
+}}
+QScrollBar::handle:vertical:hover {{ background: #A99586; }}
+QScrollBar::handle:vertical:pressed {{ background: {COLORS['accent']}; }}
+QScrollBar::sub-line:vertical, QScrollBar::add-line:vertical {{
+    height: 0; border: none; background: transparent;
+}}
+QScrollBar::sub-page:vertical, QScrollBar::add-page:vertical {{ background: transparent; }}
+QScrollBar:horizontal {{
+    height: 14px; margin: 2px 4px; border: none; background: transparent;
+}}
+QScrollBar::handle:horizontal {{
+    min-width: 64px; margin: 2px 0; border: none; border-radius: 5px;
+    background: #C7B9AD;
+}}
+QScrollBar::handle:horizontal:hover {{ background: #A99586; }}
+QScrollBar::handle:horizontal:pressed {{ background: {COLORS['accent']}; }}
+QScrollBar::sub-line:horizontal, QScrollBar::add-line:horizontal {{
+    width: 0; border: none; background: transparent;
+}}
+QScrollBar::sub-page:horizontal, QScrollBar::add-page:horizontal {{ background: transparent; }}
+QScrollBar::handle:disabled {{ background: transparent; }}
+QAbstractScrollArea::corner {{ border: none; background: transparent; }}
 QSplitter::handle {{ background: transparent; width: 8px; height: 8px; }}
 """
 
@@ -452,6 +478,10 @@ class MainWindow(QMainWindow):
         self.table.setSelectionMode(QTableWidget.SingleSelection)
         self.table.setAlternatingRowColors(True)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.table.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
+        self.table.verticalScrollBar().setSingleStep(34)
+        self.table.horizontalScrollBar().setSingleStep(56)
         self.table.verticalHeader().setVisible(False)
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Stretch)
@@ -476,6 +506,8 @@ class MainWindow(QMainWindow):
     def _build_company_tab(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.verticalScrollBar().setSingleStep(28)
         body = QWidget()
         body.setObjectName('panelBody')
         layout = QVBoxLayout(body)
@@ -559,6 +591,8 @@ class MainWindow(QMainWindow):
         hint = QLabel('Your profile, documents and service keys stay on this Windows account.')
         hint.setObjectName('muted')
         scroll = QScrollArea(); scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.verticalScrollBar().setSingleStep(28)
         card = self._glass(); content = QVBoxLayout(card); content.setContentsMargins(22,18,22,18)
 
         profile_card = QFrame(); profile_card.setObjectName('profileCard')
