@@ -50,6 +50,7 @@ Never commit:
 
 - Excel import and email-candidate matching are implemented; candidates require user verification.
 - Industry, region, distance, transit-line, and application-status filters are implemented.
+- Company website values are rendered as safe clickable `http/https` links in the inspector; scheme-less domains open with HTTPS, while non-web schemes remain plain text.
 - Bulk station calculation respects the currently selected industry and region.
 - Calculated station data is stored in SQLite and is reused; recalculation overwrites the previous result.
 - Supported transit networks include MRT Putrajaya, MRT Kajang, LRT Kelana Jaya, LRT Ampang, LRT Sri Petaling, and KL Monorail.

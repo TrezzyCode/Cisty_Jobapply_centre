@@ -1,5 +1,6 @@
 import os
 import sys
+import html
 import math
 import time
 import json
@@ -14,7 +15,7 @@ from email.message import EmailMessage
 from email.utils import getaddresses
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
 from PySide6.QtCore import (
@@ -1741,7 +1742,8 @@ class MainWindow(QMainWindow):
         self.company_status.setObjectName('success')
         self.company_details = QLabel('Choose a row to review the company, route and verified contact.')
         self.company_details.setWordWrap(True)
-        self.company_details.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.company_details.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        self.company_details.setOpenExternalLinks(True)
         layout.addWidget(self.company_title)
         layout.addWidget(self.company_status)
         layout.addWidget(self.company_details)
@@ -2070,6 +2072,24 @@ class MainWindow(QMainWindow):
         if not self.selected_id: return None
         con = db(); row = con.execute('SELECT * FROM companies WHERE id=?',(self.selected_id,)).fetchone(); con.close(); return row
 
+    @staticmethod
+    def _company_details_markup(row, address):
+        website = str(row['website'] or '').strip()
+        website_markup = '—'
+        if website:
+            target = website if '://' in website else 'https://' + website
+            parsed = urlparse(target)
+            display = html.escape(website)
+            if parsed.scheme.casefold() in ('http', 'https') and parsed.netloc:
+                website_markup = f'<a href="{html.escape(target, quote=True)}">{display}</a>'
+            else:
+                website_markup = display
+        return (
+            f"Industry&nbsp;&nbsp;{html.escape(str(row['industry'] or '—'))}<br>"
+            f"Address&nbsp;&nbsp;{html.escape(address or '—')}<br>"
+            f"Website&nbsp;&nbsp;{website_markup}"
+        )
+
     def on_select(self):
         items = self.table.selectedItems()
         if not items: return
@@ -2080,7 +2100,7 @@ class MainWindow(QMainWindow):
         self.company_title.setText(row['name'])
         self.company_status.setText(row['status'] or 'Not applied')
         address = ', '.join(str(x) for x in [row['address'],row['postcode'],row['city'],row['state'],row['country']] if x)
-        self.company_details.setText(f"Industry  {row['industry']}\nAddress  {address}\nWebsite  {row['website'] or '—'}")
+        self.company_details.setText(self._company_details_markup(row, address))
         self.email_edit.setText(row['hr_email'] or '')
         self.email_verified.setChecked(bool(row['email_verified']))
         line = row['station_line'] or self._station_line_for(row['station']) or 'MRT Putrajaya Line'
