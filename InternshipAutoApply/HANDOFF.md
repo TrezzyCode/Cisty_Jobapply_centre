@@ -84,7 +84,7 @@ Do not package during normal iteration. When a release candidate is approved:
 
 ## Git workflow
 
-Canonical repository: `https://github.com/TrezzyCode/auto_send_internship_req`
+Canonical repository: `https://github.com/TrezzyCode/Cisty_Jobapply_centre`
 
 Use the `main` branch. Before every push, inspect `git status` and the staged file list for credentials or personal data. Commit source and documentation changes together with a concise message. Do not commit generated EXE files unless a future release policy explicitly requests GitHub Releases.
 

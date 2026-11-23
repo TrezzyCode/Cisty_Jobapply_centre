@@ -2,14 +2,14 @@
 
 > A private Windows workspace for finding KL internships, comparing nearby MRT/LRT stations, applying through Gmail, and following only the conversations started in Cisty.
 
-[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011-2B2724?style=flat-square&logo=windows)](https://github.com/TrezzyCode/auto_send_internship_req)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011-2B2724?style=flat-square&logo=windows)](https://github.com/TrezzyCode/Cisty_Jobapply_centre)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-B75334?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 
-[![Cisty product film](docs/media/cisty-promo-preview.gif)](https://cdn.jsdelivr.net/gh/TrezzyCode/auto_send_internship_req@main/docs/media/cisty-promo-no-music.mp4)
+[![Cisty product film](docs/media/cisty-promo-preview.gif)](https://cdn.jsdelivr.net/gh/TrezzyCode/Cisty_Jobapply_centre@main/docs/media/cisty-promo-no-music.mp4)
 
-**[Watch the 1080p product film — no background music, interface SFX only](https://cdn.jsdelivr.net/gh/TrezzyCode/auto_send_internship_req@main/docs/media/cisty-promo-no-music.mp4)**
+**[Watch the 1080p product film — no background music, interface SFX only](https://cdn.jsdelivr.net/gh/TrezzyCode/Cisty_Jobapply_centre@main/docs/media/cisty-promo-no-music.mp4)**
 
-[Download the original MP4 from GitHub](https://raw.githubusercontent.com/TrezzyCode/auto_send_internship_req/main/docs/media/cisty-promo-no-music.mp4)
+[Download the original MP4 from GitHub](https://raw.githubusercontent.com/TrezzyCode/Cisty_Jobapply_centre/main/docs/media/cisty-promo-no-music.mp4)
 
 ## What Cisty does
 
